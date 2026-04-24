@@ -61,6 +61,7 @@ class PipelineResult:
     candidates: list[Candidate]
     label_ids: list[int]
     colony_ids: list[int]
+    agar_baseline: dict[str, float] | None = None
     debug_images: dict[str, np.ndarray] = field(default_factory=dict, repr=False)
 
     @property
@@ -76,5 +77,5 @@ class PipelineResult:
             "label_ids": list(self.label_ids),
             "colony_ids": list(self.colony_ids),
             "candidates": [candidate.to_dict() for candidate in self.candidates],
+            "agar_baseline": None if self.agar_baseline is None else {key: float(value) for key, value in self.agar_baseline.items()},
         }
-

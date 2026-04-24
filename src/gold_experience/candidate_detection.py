@@ -240,6 +240,7 @@ def detect_candidates(
     image: np.ndarray,
     dish: DishCircle,
     dish_mask: np.ndarray,
+    baseline: dict[str, float] | None = None,
 ) -> tuple[list[Candidate], dict[str, np.ndarray]]:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     gray_blur = cv2.GaussianBlur(gray, (7, 7), 0)
@@ -272,6 +273,9 @@ def detect_candidates(
     laplacian = cv2.Laplacian(gray_blur, cv2.CV_32F)
     abs_laplacian = np.abs(laplacian)
     dish_area = pi * dish.radius * dish.radius
+    agar_l = 210.0 if baseline is None else float(baseline.get("L", 210.0))
+    agar_l_std = 18.0 if baseline is None else float(baseline.get("L_std", 18.0))
+    contrast_floor = agar_l_std * 3.2
 
     proposals: list[Proposal] = []
     proposals.extend(
@@ -325,11 +329,11 @@ def detect_candidates(
             continue
         lightness, a_value, b_value = candidate.mean_lab
         chroma = abs(a_value - 128.0) + abs(b_value - 128.0)
-        if lightness > 246.0 and chroma < 24.0:
+        if lightness > agar_l + 36.0 and chroma < 24.0:
             continue
-        if candidate.local_contrast < 85.0 and chroma < 28.0:
+        if candidate.local_contrast < contrast_floor and chroma < 28.0:
             continue
-        if candidate.area < max(16.0, dish_area * 0.000015) and candidate.local_contrast < 110.0:
+        if candidate.area < max(16.0, dish_area * 0.000015) and candidate.local_contrast < contrast_floor * 1.3:
             continue
         raw_candidates.append(candidate)
 

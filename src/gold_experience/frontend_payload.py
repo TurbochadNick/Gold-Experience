@@ -77,6 +77,7 @@ def build_frontend_payload(
             "height": height,
         },
         "dish": result.dish.to_dict(),
+        "agar_baseline": None if result.agar_baseline is None else {key: float(value) for key, value in result.agar_baseline.items()},
         "summary": {
             "candidate_count": len(result.candidates),
             "colony_count": len(colonies),
