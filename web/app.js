@@ -359,9 +359,23 @@ async function analyzeFile(file) {
       method: "POST",
       body: formData,
     });
-    const payload = await response.json();
+    const raw = await response.text();
+    if (!raw) {
+      throw new Error(`Analysis failed: server returned an empty response (status ${response.status}).`);
+    }
+
+    let payload = null;
+    try {
+      payload = JSON.parse(raw);
+    } catch (parseError) {
+      const contentType = response.headers.get("content-type") || "unknown content type";
+      throw new Error(
+        `Analysis failed: server returned invalid JSON (status ${response.status}, ${contentType}).`,
+      );
+    }
+
     if (!response.ok || !payload.ok) {
-      throw new Error(payload.error || "Analysis failed.");
+      throw new Error(payload?.error || `Analysis failed (status ${response.status}).`);
     }
     state.analysis = payload.analysis;
   } catch (error) {

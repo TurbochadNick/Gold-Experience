@@ -6,6 +6,7 @@ import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 from urllib.parse import unquote, urlparse
 
@@ -81,6 +82,10 @@ def _downscale_for_analysis(
         "analysis_height": float(analysis_height),
         "scale": float(scale),
     }
+
+
+def _format_ms(seconds: float) -> str:
+    return f"{seconds * 1000.0:.1f}ms"
 
 
 class GoldExperienceRequestHandler(BaseHTTPRequestHandler):
@@ -168,7 +173,9 @@ class GoldExperienceRequestHandler(BaseHTTPRequestHandler):
             return
 
         try:
+            request_started_at = perf_counter()
             file_bytes, filename = self._parse_upload()
+            upload_parsed_at = perf_counter()
             if not file_bytes:
                 self._send_json(
                     HTTPStatus.BAD_REQUEST,
@@ -178,6 +185,7 @@ class GoldExperienceRequestHandler(BaseHTTPRequestHandler):
 
             encoded = np.frombuffer(file_bytes, dtype=np.uint8)
             image = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
+            image_decoded_at = perf_counter()
             if image is None:
                 self._send_json(
                     HTTPStatus.BAD_REQUEST,
@@ -186,6 +194,7 @@ class GoldExperienceRequestHandler(BaseHTTPRequestHandler):
                 return
 
             analysis_image, resize_info = _downscale_for_analysis(image)
+            image_resized_at = perf_counter()
             if resize_info["scale"] < 1.0:
                 print(
                     "Downscaled upload "
@@ -196,10 +205,27 @@ class GoldExperienceRequestHandler(BaseHTTPRequestHandler):
                 )
 
             result = self.pipeline.run(analysis_image)
+            pipeline_finished_at = perf_counter()
             payload = build_frontend_payload(
                 result=result,
                 image_shape=analysis_image.shape,
                 filename=filename,
+            )
+            payload_built_at = perf_counter()
+            total_duration = payload_built_at - request_started_at
+            print(
+                "Analyze timing "
+                f"{filename or '<unnamed>'}: "
+                f"upload_parse={_format_ms(upload_parsed_at - request_started_at)} "
+                f"decode={_format_ms(image_decoded_at - upload_parsed_at)} "
+                f"resize={_format_ms(image_resized_at - image_decoded_at)} "
+                f"pipeline={_format_ms(pipeline_finished_at - image_resized_at)} "
+                f"payload={_format_ms(payload_built_at - pipeline_finished_at)} "
+                f"total={_format_ms(total_duration)} "
+                f"original={int(resize_info['original_width'])}x{int(resize_info['original_height'])} "
+                f"analysis={int(resize_info['analysis_width'])}x{int(resize_info['analysis_height'])} "
+                f"scale={resize_info['scale']:.3f} "
+                f"candidates={len(result.candidates)} colonies={len(result.colony_ids)} labels={len(result.label_ids)}"
             )
             self._send_json(
                 HTTPStatus.OK,
