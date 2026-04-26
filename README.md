@@ -34,6 +34,7 @@ scripts/
   generate_synthetic.py
   run_pipeline.py
   evaluate_pipeline.py
+  import_cvat_native.py
 ```
 
 ## Setup
@@ -84,6 +85,33 @@ The browser UI uploads the image to the same service. The response includes:
 - pipeline step summaries for the UI
 
 The API is still available directly at `POST /analyze` and `GET /health`.
+
+## Annotation Workflow
+
+We now have a first scaffold for manual plate annotation with CVAT plus per-image user hints.
+
+Docs:
+
+- [CVAT label spec](./CVAT_LABEL_SPEC.md)
+- [Annotation schema](./ANNOTATION_SCHEMA.md)
+- [CVAT + GxP integration plan](./CVAT_GXP_PLAN.md)
+
+Python models:
+
+- `src/gold_experience/annotations.py`
+
+Import a CVAT native export:
+
+```bash
+python3 scripts/import_cvat_native.py path/to/annotations.xml --output-dir data/annotations/gold
+```
+
+Expected CVAT labels:
+
+- `dish`
+- `colony`
+- `label_region`
+- `ignore_region`
 
 ## Deploy with Docker
 
