@@ -34,6 +34,7 @@ scripts/
   generate_synthetic.py
   run_pipeline.py
   evaluate_pipeline.py
+  evaluate_gold_annotations.py
   import_cvat_native.py
 ```
 
@@ -112,6 +113,17 @@ Expected CVAT labels:
 - `colony`
 - `label_region`
 - `ignore_region`
+
+Evaluate the current detector against the imported gold annotations:
+
+```bash
+python3 scripts/evaluate_gold_annotations.py \
+  --image-dir data/benchmark/images \
+  --annotations-dir data/annotations/gold \
+  --summary-path outputs/evaluation/gold_annotations_current.json
+```
+
+The gold benchmark intentionally lives in `data/benchmark/images` and `data/annotations/gold` so the same annotated plates can be used locally, in CI, and inside the deployed container when needed.
 
 ## Deploy with Docker
 

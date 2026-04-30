@@ -14,10 +14,10 @@ import cv2
 import numpy as np
 
 from .frontend_payload import build_frontend_payload
+from .image_preprocessing import downscale_for_analysis
 from .pipeline import ColonyCounterPipeline
 
 WEB_ROOT = Path(__file__).resolve().parents[2] / "web"
-MAX_ANALYSIS_SIDE = 1600
 CONTENT_TYPES = {
     ".css": "text/css; charset=utf-8",
     ".html": "text/html; charset=utf-8",
@@ -50,38 +50,6 @@ def _parse_multipart_payload(body: bytes, content_type: str) -> tuple[bytes | No
         return payload, part.get_filename()
 
     return None, None
-
-
-def _downscale_for_analysis(
-    image: np.ndarray,
-    max_side: int = MAX_ANALYSIS_SIDE,
-) -> tuple[np.ndarray, dict[str, float]]:
-    height, width = image.shape[:2]
-    longest_side = max(height, width)
-    if longest_side <= max_side:
-        return image, {
-            "original_width": float(width),
-            "original_height": float(height),
-            "analysis_width": float(width),
-            "analysis_height": float(height),
-            "scale": 1.0,
-        }
-
-    scale = max_side / float(longest_side)
-    analysis_width = max(1, int(round(width * scale)))
-    analysis_height = max(1, int(round(height * scale)))
-    resized = cv2.resize(
-        image,
-        (analysis_width, analysis_height),
-        interpolation=cv2.INTER_AREA,
-    )
-    return resized, {
-        "original_width": float(width),
-        "original_height": float(height),
-        "analysis_width": float(analysis_width),
-        "analysis_height": float(analysis_height),
-        "scale": float(scale),
-    }
 
 
 def _format_ms(seconds: float) -> str:
@@ -193,7 +161,7 @@ class GoldExperienceRequestHandler(BaseHTTPRequestHandler):
                 )
                 return
 
-            analysis_image, resize_info = _downscale_for_analysis(image)
+            analysis_image, resize_info = downscale_for_analysis(image)
             image_resized_at = perf_counter()
             if resize_info["scale"] < 1.0:
                 print(
