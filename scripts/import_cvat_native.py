@@ -26,6 +26,10 @@ SUPPORTED_LABELS = {
 }
 
 
+def _normalize_label(raw: str) -> str:
+    return raw.strip().lower()
+
+
 def _parse_points_blob(raw: str) -> list[tuple[float, float]]:
     points: list[tuple[float, float]] = []
     for pair in raw.split(";"):
@@ -57,7 +61,7 @@ def import_cvat_native(xml_path: Path) -> list[PlateGoldAnnotation]:
         )
 
         for ellipse in image_node.findall("ellipse"):
-            label = ellipse.attrib.get("label", "")
+            label = _normalize_label(ellipse.attrib.get("label", ""))
             if label != "dish":
                 continue
             record.dish = DishAnnotation(
@@ -69,7 +73,7 @@ def import_cvat_native(xml_path: Path) -> list[PlateGoldAnnotation]:
             )
 
         for points_node in image_node.findall("points"):
-            label = points_node.attrib.get("label", "")
+            label = _normalize_label(points_node.attrib.get("label", ""))
             if label != "colony":
                 continue
             points = _parse_points_blob(points_node.attrib["points"])
@@ -85,7 +89,7 @@ def import_cvat_native(xml_path: Path) -> list[PlateGoldAnnotation]:
             )
 
         for polygon_node in image_node.findall("polygon"):
-            label = polygon_node.attrib.get("label", "")
+            label = _normalize_label(polygon_node.attrib.get("label", ""))
             points = _parse_points_blob(polygon_node.attrib["points"])
             polygon = PolygonAnnotation(points=points)
             if label == "label_region":
