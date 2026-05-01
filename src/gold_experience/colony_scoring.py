@@ -5,6 +5,14 @@ from math import pi
 from .features import clamp, lab_darkness, lab_warmth, relative_contrast_score
 from .models import Candidate, DishCircle
 
+COLONY_SCORE_THRESHOLD = 0.65
+MIN_EQUIVALENT_RADIUS = 3.0
+MIN_LOCAL_CONTRAST = 115.0
+MIN_CIRCULARITY = 0.45
+MIN_SOLIDITY = 0.75
+LABEL_SCORE_REVIEW_GATE = 0.60
+LABEL_GATE_MIN_WARMTH = 0.18
+
 
 def classify_colonies(
     candidates: list[Candidate],
@@ -36,7 +44,8 @@ def classify_colonies(
         darkness_score = lab_darkness(candidate.mean_lab, agar_l=agar_l)
         large_blob_score = clamp((candidate.equivalent_radius - 8.0) / 12.0)
         rim_penalty = 0.5 if candidate.rim_margin <= max(4.0, 0.35 * candidate.equivalent_radius) else 0.0
-        text_penalty = 0.55 * candidate.scores.get("label_score", 0.0)
+        label_score = candidate.scores.get("label_score", 0.0)
+        text_penalty = 0.55 * label_score
 
         colony_score = (
             0.25 * size_score
@@ -52,7 +61,15 @@ def classify_colonies(
         candidate.scores["colony_score"] = float(colony_score)
         candidate.scores["darkness_score"] = float(darkness_score)
         candidate.scores["contrast_score"] = float(contrast_score)
-        candidate.predicted_colony = colony_score >= 0.45
+        candidate.scores["warmth_score"] = float(warmth_score)
+        hard_reject = (
+            candidate.equivalent_radius < MIN_EQUIVALENT_RADIUS
+            or candidate.local_contrast < MIN_LOCAL_CONTRAST
+            or candidate.circularity < MIN_CIRCULARITY
+            or candidate.solidity < MIN_SOLIDITY
+            or (label_score > LABEL_SCORE_REVIEW_GATE and warmth_score < LABEL_GATE_MIN_WARMTH)
+        )
+        candidate.predicted_colony = (not hard_reject) and colony_score >= COLONY_SCORE_THRESHOLD
         if candidate.predicted_colony:
             colony_ids.append(candidate.id)
 

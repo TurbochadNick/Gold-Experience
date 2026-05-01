@@ -53,13 +53,14 @@ def classify_labels(candidates: list[Candidate]) -> list[int]:
         dark_score = lab_darkness(candidate.mean_lab)
         neutral_score = lab_neutrality(candidate.mean_lab)
         warm_score = lab_warmth(candidate.mean_lab)
+        warmth_veto = clamp(warm_score / 0.35)
         label_score = (
             0.25 * small_score
             + 0.25 * ((dark_score + neutral_score) / 2.0)
             + 0.20 * clamp(aligned_neighbors / 2.0)
             + 0.15 * grid_mean
             + 0.15 * clamp(nearby_count / 4.0)
-            - 0.15 * warm_score
+            - 0.45 * warmth_veto
         )
         candidate.scores.update(
             {
@@ -68,6 +69,7 @@ def classify_labels(candidates: list[Candidate]) -> list[int]:
                 "grid_mean": float(grid_mean),
                 "label_score": float(label_score),
                 "warmth": float(warm_score),
+                "warmth_veto": float(warmth_veto),
                 "darkness": float(dark_score),
                 "neutrality": float(neutral_score),
             }
@@ -106,7 +108,7 @@ def classify_labels(candidates: list[Candidate]) -> list[int]:
 
         if (
             mean_label_score >= 0.38
-            and mean_warmth <= 0.40
+            and mean_warmth <= 0.22
             and mean_radius <= 7.5
             and radius_cv <= 0.35
             and mean_alignment >= 0.2
@@ -118,8 +120,12 @@ def classify_labels(candidates: list[Candidate]) -> list[int]:
             candidate.predicted_label = True
             continue
 
-        if candidate.scores["label_score"] >= 0.40 and (
-            candidate.scores["aligned_neighbors"] >= 1.0 or candidate.scores["nearby_count"] >= 2.0
+        if (
+            candidate.scores["label_score"] >= 0.52
+            and candidate.scores["aligned_neighbors"] >= 2.0
+            and candidate.scores["grid_mean"] >= 0.55
+            and candidate.scores["nearby_count"] >= 3.0
+            and candidate.scores["warmth"] < 0.30
         ):
             label_ids.add(candidate.id)
             candidate.predicted_label = True
