@@ -12,6 +12,10 @@ MIN_CIRCULARITY = 0.45
 MIN_SOLIDITY = 0.75
 LABEL_SCORE_REVIEW_GATE = 0.60
 LABEL_GATE_MIN_WARMTH = 0.18
+LARGE_DIFFUSE_MIN_RADIUS = 10.0
+LARGE_DIFFUSE_MIN_AREA = 300.0
+LARGE_DIFFUSE_MIN_CONTRAST = 80.0
+LARGE_DIFFUSE_MAX_LABEL_SCORE = 0.50
 
 
 def classify_colonies(
@@ -64,7 +68,15 @@ def classify_colonies(
         candidate.scores["warmth_score"] = float(warmth_score)
         hard_reject = (
             candidate.equivalent_radius < MIN_EQUIVALENT_RADIUS
-            or candidate.local_contrast < MIN_LOCAL_CONTRAST
+            or (
+                candidate.local_contrast < MIN_LOCAL_CONTRAST
+                and not (
+                    candidate.equivalent_radius >= LARGE_DIFFUSE_MIN_RADIUS
+                    and candidate.area >= LARGE_DIFFUSE_MIN_AREA
+                    and candidate.local_contrast >= LARGE_DIFFUSE_MIN_CONTRAST
+                    and label_score < LARGE_DIFFUSE_MAX_LABEL_SCORE
+                )
+            )
             or candidate.circularity < MIN_CIRCULARITY
             or candidate.solidity < MIN_SOLIDITY
             or (label_score > LABEL_SCORE_REVIEW_GATE and warmth_score < LABEL_GATE_MIN_WARMTH)
