@@ -11,9 +11,9 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from gold_experience.annotations import (  # noqa: E402
+    ColonyAnnotation,
     DishAnnotation,
     PlateGoldAnnotation,
-    PointAnnotation,
     PolygonAnnotation,
 )
 
@@ -21,6 +21,8 @@ from gold_experience.annotations import (  # noqa: E402
 SUPPORTED_LABELS = {
     "dish": "ellipse",
     "colony": "points",
+    "colony_point": "points",
+    "colony_ellipse": "ellipse",
     "label_region": "polygon",
     "ignore_region": "polygon",
 }
@@ -28,6 +30,14 @@ SUPPORTED_LABELS = {
 
 def _normalize_label(raw: str) -> str:
     return raw.strip().lower()
+
+
+def _is_colony_point_label(label: str) -> bool:
+    return label in {"colony", "colony_point"}
+
+
+def _is_colony_ellipse_label(label: str) -> bool:
+    return label in {"colony_ellipse", "colony_blob"} or label == "colony"
 
 
 def _parse_points_blob(raw: str) -> list[tuple[float, float]]:
@@ -62,28 +72,45 @@ def import_cvat_native(xml_path: Path) -> list[PlateGoldAnnotation]:
 
         for ellipse in image_node.findall("ellipse"):
             label = _normalize_label(ellipse.attrib.get("label", ""))
-            if label != "dish":
+            if label == "dish":
+                record.dish = DishAnnotation(
+                    cx=float(ellipse.attrib["cx"]),
+                    cy=float(ellipse.attrib["cy"]),
+                    rx=float(ellipse.attrib["rx"]),
+                    ry=float(ellipse.attrib["ry"]),
+                    rotation=float(ellipse.attrib.get("rotation", 0.0)),
+                )
                 continue
-            record.dish = DishAnnotation(
-                cx=float(ellipse.attrib["cx"]),
-                cy=float(ellipse.attrib["cy"]),
-                rx=float(ellipse.attrib["rx"]),
-                ry=float(ellipse.attrib["ry"]),
-                rotation=float(ellipse.attrib.get("rotation", 0.0)),
+            if not _is_colony_ellipse_label(label):
+                continue
+            rx = float(ellipse.attrib["rx"])
+            ry = float(ellipse.attrib["ry"])
+            record.colonies.append(
+                ColonyAnnotation(
+                    x=float(ellipse.attrib["cx"]),
+                    y=float(ellipse.attrib["cy"]),
+                    radius=(rx + ry) / 2.0,
+                    morphology="ellipse",
+                    rx=rx,
+                    ry=ry,
+                    rotation=float(ellipse.attrib.get("rotation", 0.0)),
+                    tag=ellipse.attrib.get("occluded"),
+                )
             )
 
         for points_node in image_node.findall("points"):
             label = _normalize_label(points_node.attrib.get("label", ""))
-            if label != "colony":
+            if not _is_colony_point_label(label):
                 continue
             points = _parse_points_blob(points_node.attrib["points"])
             if not points:
                 continue
             x_pos, y_pos = points[0]
             record.colonies.append(
-                PointAnnotation(
+                ColonyAnnotation(
                     x=x_pos,
                     y=y_pos,
+                    morphology="point",
                     tag=points_node.attrib.get("occluded"),
                 )
             )
@@ -124,7 +151,7 @@ def main() -> None:
     print(
         "Imported "
         f"{len(records)} images from {args.xml_path.name}. "
-        "Expected labels: dish, colony, label_region, ignore_region."
+        "Expected labels: dish, colony_point, colony_ellipse, label_region, ignore_region."
     )
 
 

@@ -110,9 +110,12 @@ python3 scripts/import_cvat_native.py path/to/annotations.xml --output-dir data/
 Expected CVAT labels:
 
 - `dish`
-- `colony`
+- `colony_point` for small dot-like colonies
+- `colony_ellipse` for larger diffuse/blob-like colonies
 - `label_region`
 - `ignore_region`
+
+Legacy `colony` labels are still accepted: point shapes import as point colonies, and ellipse shapes import as ellipse colonies.
 
 Evaluate the current detector against the imported gold annotations:
 

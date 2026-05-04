@@ -21,20 +21,41 @@ Store:
 - radius x/y
 - rotation
 
-### 2. `colony`
+### 2. `colony_point`
 
-- Shape: `points` for the fastest workflow
-- Optional upgrade: `ellipse` if we later want explicit size per colony
+- Shape: `points`
 - Required: yes, one point per visible colony
 - Meaning:
-  - true colony center
+  - true center of a small dot-like colony
 
 Guidance:
 
-- click once at the visual center of each colony
+- use this for dense plates like `1399`
+- click once at the visual center of each small colony
 - for merged/touching colonies, annotate each visible colony center separately if distinguishable
 
-### 3. `label_region`
+Legacy compatibility:
+
+- Existing `colony` point labels still import as `colony_point`.
+
+### 3. `colony_ellipse`
+
+- Shape: `ellipse`
+- Required: yes for larger diffuse/blob-like colonies when present
+- Meaning:
+  - approximate footprint and center of a large fuzzy colony
+
+Guidance:
+
+- use this for plates like `525`
+- draw a loose ellipse around the visible colony body
+- do not trace every fuzzy edge perfectly; center and approximate radius matter most
+
+Legacy compatibility:
+
+- Existing `colony` ellipse labels import as `colony_ellipse`.
+
+### 4. `label_region`
 
 - Shape: `polygon`
 - Required: yes if printed label / writing exists
@@ -47,7 +68,7 @@ Examples:
 - pen marks
 - stamp-like text
 
-### 4. `ignore_region`
+### 5. `ignore_region`
 
 - Shape: `polygon`
 - Optional
@@ -68,6 +89,7 @@ Examples:
 2. Annotate colonies inside the usable dish area only.
 3. If a region is ambiguous, prefer putting it in `ignore_region` rather than forcing a wrong colony/non-colony decision.
 4. `label_region` should cover the whole printed text cluster, not just a few dots.
+5. Use `colony_point` for small dot colonies and `colony_ellipse` for large diffuse colonies.
 
 ## Recommended CVAT Export
 

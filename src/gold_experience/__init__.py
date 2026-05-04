@@ -1,4 +1,4 @@
 from .pipeline import ColonyCounterPipeline
-from .annotations import PlateGoldAnnotation, PlateUserHints
+from .annotations import ColonyAnnotation, PlateGoldAnnotation, PlateUserHints
 
-__all__ = ["ColonyCounterPipeline", "PlateGoldAnnotation", "PlateUserHints"]
+__all__ = ["ColonyAnnotation", "ColonyCounterPipeline", "PlateGoldAnnotation", "PlateUserHints"]

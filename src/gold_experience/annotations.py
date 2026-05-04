@@ -35,6 +35,49 @@ class DishAnnotation:
 
 
 @dataclass
+class ColonyAnnotation:
+    x: float
+    y: float
+    radius: float | None = None
+    morphology: str = "point"
+    rx: float | None = None
+    ry: float | None = None
+    rotation: float = 0.0
+    tag: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "x": float(self.x),
+            "y": float(self.y),
+            "morphology": str(self.morphology),
+        }
+        if self.radius is not None:
+            payload["radius"] = float(self.radius)
+        if self.rx is not None:
+            payload["rx"] = float(self.rx)
+        if self.ry is not None:
+            payload["ry"] = float(self.ry)
+        if self.rotation:
+            payload["rotation"] = float(self.rotation)
+        if self.tag:
+            payload["tag"] = str(self.tag)
+        return payload
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "ColonyAnnotation":
+        return cls(
+            x=float(payload["x"]),
+            y=float(payload["y"]),
+            radius=None if "radius" not in payload else float(payload["radius"]),
+            morphology=str(payload.get("morphology", "point")),
+            rx=None if "rx" not in payload else float(payload["rx"]),
+            ry=None if "ry" not in payload else float(payload["ry"]),
+            rotation=float(payload.get("rotation", 0.0)),
+            tag=payload.get("tag"),
+        )
+
+
+@dataclass
 class PointAnnotation:
     x: float
     y: float
@@ -86,7 +129,7 @@ class PlateGoldAnnotation:
     image_width: int
     image_height: int
     dish: DishAnnotation | None = None
-    colonies: list[PointAnnotation] = field(default_factory=list)
+    colonies: list[ColonyAnnotation] = field(default_factory=list)
     label_regions: list[PolygonAnnotation] = field(default_factory=list)
     ignore_regions: list[PolygonAnnotation] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -114,7 +157,7 @@ class PlateGoldAnnotation:
             image_width=int(payload["image_width"]),
             image_height=int(payload["image_height"]),
             dish=None if payload.get("dish") is None else DishAnnotation.from_dict(payload["dish"]),
-            colonies=[PointAnnotation.from_dict(item) for item in payload.get("colonies", [])],
+            colonies=[ColonyAnnotation.from_dict(item) for item in payload.get("colonies", [])],
             label_regions=[PolygonAnnotation.from_dict(item) for item in payload.get("label_regions", [])],
             ignore_regions=[PolygonAnnotation.from_dict(item) for item in payload.get("ignore_regions", [])],
             metadata=dict(payload.get("metadata", {})),

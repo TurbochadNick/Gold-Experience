@@ -33,8 +33,16 @@ Example:
     "rotation": 0.0
   },
   "colonies": [
-    { "x": 1203.5, "y": 998.0 },
-    { "x": 1244.0, "y": 1032.0 }
+    { "x": 1203.5, "y": 998.0, "morphology": "point" },
+    {
+      "x": 1244.0,
+      "y": 1032.0,
+      "morphology": "ellipse",
+      "radius": 28.0,
+      "rx": 31.0,
+      "ry": 25.0,
+      "rotation": 3.0
+    }
   ],
   "label_regions": [
     {
@@ -102,7 +110,14 @@ Python models live in:
 Current classes:
 
 - `DishAnnotation`
+- `ColonyAnnotation`
 - `PointAnnotation`
 - `PolygonAnnotation`
 - `PlateGoldAnnotation`
 - `PlateUserHints`
+
+Colony morphology:
+
+- `point` means a small dot colony annotated by center only.
+- `ellipse` means a larger diffuse/blob colony annotated by approximate footprint.
+- old `{ "x": ..., "y": ... }` colony records still load as `morphology: "point"`.

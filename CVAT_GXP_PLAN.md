@@ -36,21 +36,25 @@ Do not start with pixel-perfect masks for every colony.
 
 That is too slow and unnecessary for the current stage.
 
-Instead, define 4 annotation types:
+Instead, define 5 annotation types:
 
 1. `dish`
    - shape: ellipse
    - purpose: plate localization benchmark
 
-2. `colony`
-   - shape: point or ellipse
-   - purpose: counting, detection evaluation, later colony classification
+2. `colony_point`
+   - shape: point
+   - purpose: counting and detection evaluation for small dot-like colonies
 
-3. `label_region`
+3. `colony_ellipse`
+   - shape: ellipse
+   - purpose: counting and size-aware evaluation for larger diffuse/blob-like colonies
+
+4. `label_region`
    - shape: polygon or mask
    - purpose: directly supervise "label vs not label"
 
-4. `ignore_region`
+5. `ignore_region`
    - shape: polygon
    - purpose: glare, scratches, rim junk, ambiguous artifacts
 
@@ -59,7 +63,8 @@ Instead, define 4 annotation types:
 For each plate:
 
 - 1 dish ellipse
-- colony center points for all visible colonies
+- colony center points for small dot-like colonies
+- colony ellipses for large diffuse/blob-like colonies
 - 1+ label polygons over printed text / markings
 - optional ignore polygons
 
@@ -75,7 +80,7 @@ These come from CVAT and are the trusted benchmark / training data.
 
 Examples:
 
-- full colony center points
+- full colony annotations with points for small colonies and ellipses for large diffuse colonies
 - reviewed label regions
 - ignore regions
 
@@ -271,7 +276,8 @@ Reason:
 1. Create one CVAT project for GxP Bio plates.
 2. Define labels:
    - `dish`
-   - `colony`
+   - `colony_point`
+   - `colony_ellipse`
    - `label_region`
    - `ignore_region`
 3. Annotate 20 to 50 plates across:

@@ -20,6 +20,14 @@ class PointMatch:
     distance: float
 
 
+@dataclass(frozen=True)
+class TruthColony:
+    x: float
+    y: float
+    tolerance: float
+    morphology: str
+
+
 def _scaled_points(points: list[tuple[float, float]], scale: float) -> list[tuple[float, float]]:
     return [(x_pos * scale, y_pos * scale) for x_pos, y_pos in points]
 
@@ -44,14 +52,13 @@ def _point_in_any_polygon(
 
 def _match_points(
     predictions: list[tuple[float, float]],
-    truth: list[tuple[float, float]],
-    tolerance: float,
+    truth: list[TruthColony],
 ) -> list[PointMatch]:
     pairs: list[PointMatch] = []
     for prediction_index, prediction in enumerate(predictions):
         for truth_index, true_point in enumerate(truth):
-            distance = hypot(prediction[0] - true_point[0], prediction[1] - true_point[1])
-            if distance <= tolerance:
+            distance = hypot(prediction[0] - true_point.x, prediction[1] - true_point.y)
+            if distance <= true_point.tolerance:
                 pairs.append(
                     PointMatch(
                         prediction_index=prediction_index,
@@ -85,6 +92,30 @@ def _dish_error(result_dish: Any, gold: PlateGoldAnnotation, scale: float) -> di
     }
 
 
+def _truth_colonies(gold: PlateGoldAnnotation, scale: float, base_tolerance: float) -> list[TruthColony]:
+    truth: list[TruthColony] = []
+    for item in gold.colonies:
+        morphology = item.morphology
+        radius = 0.0 if item.radius is None else item.radius * scale
+        if morphology == "ellipse":
+            # Blob annotations describe an approximate object footprint, not a
+            # pinpoint center. Matching should allow a detector center anywhere
+            # reasonably near the annotated blob center without swallowing
+            # adjacent colonies in dense plates.
+            tolerance = max(base_tolerance, min(48.0, radius * 0.75))
+        else:
+            tolerance = base_tolerance
+        truth.append(
+            TruthColony(
+                x=item.x * scale,
+                y=item.y * scale,
+                tolerance=tolerance,
+                morphology=morphology,
+            )
+        )
+    return truth
+
+
 def evaluate_gold_image(
     image_path: Path,
     annotation_path: Path,
@@ -105,8 +136,8 @@ def evaluate_gold_image(
         for candidate in result.candidates
         if candidate.id in prediction_ids
     ]
-    truth = [(item.x * scale, item.y * scale) for item in gold.colonies]
-    matches = _match_points(predictions, truth, tolerance=match_tolerance)
+    truth = _truth_colonies(gold, scale=scale, base_tolerance=match_tolerance)
+    matches = _match_points(predictions, truth)
     matched_predictions = {item.prediction_index for item in matches}
 
     scaled_label_regions = [_scaled_polygon(polygon, scale) for polygon in gold.label_regions]
@@ -122,6 +153,19 @@ def evaluate_gold_image(
     true_positive = len(matches)
     false_positive = len(predictions) - true_positive
     false_negative = len(truth) - true_positive
+    matched_truth = {item.truth_index for item in matches}
+    truth_point_count = sum(1 for item in truth if item.morphology == "point")
+    truth_ellipse_count = sum(1 for item in truth if item.morphology == "ellipse")
+    point_true_positive = sum(
+        1
+        for index, item in enumerate(truth)
+        if item.morphology == "point" and index in matched_truth
+    )
+    ellipse_true_positive = sum(
+        1
+        for index, item in enumerate(truth)
+        if item.morphology == "ellipse" and index in matched_truth
+    )
     precision = true_positive / max(1, true_positive + false_positive)
     recall = true_positive / max(1, true_positive + false_negative)
 
@@ -142,9 +186,15 @@ def evaluate_gold_image(
         "label_count": len(result.label_ids),
         "predicted_count": len(predictions),
         "true_count": len(truth),
+        "true_point_count": truth_point_count,
+        "true_ellipse_count": truth_ellipse_count,
         "count_error": len(predictions) - len(truth),
         "absolute_count_error": abs(len(predictions) - len(truth)),
         "true_positive": true_positive,
+        "point_true_positive": point_true_positive,
+        "ellipse_true_positive": ellipse_true_positive,
+        "point_recall": point_true_positive / max(1, truth_point_count),
+        "ellipse_recall": ellipse_true_positive / max(1, truth_ellipse_count),
         "false_positive": false_positive,
         "false_negative": false_negative,
         "precision": precision,
@@ -199,7 +249,13 @@ def evaluate_gold_dataset(
         "images": image_count,
         "missing_images": len(missing_images),
         "true_colonies": sum(item["true_count"] for item in metrics),
+        "true_point_colonies": sum(item["true_point_count"] for item in metrics),
+        "true_ellipse_colonies": sum(item["true_ellipse_count"] for item in metrics),
         "predicted_colonies": sum(item["predicted_count"] for item in metrics),
+        "point_recall": sum(item["point_true_positive"] for item in metrics)
+        / max(1, sum(item["true_point_count"] for item in metrics)),
+        "ellipse_recall": sum(item["ellipse_true_positive"] for item in metrics)
+        / max(1, sum(item["true_ellipse_count"] for item in metrics)),
         "mean_precision": sum(item["precision"] for item in metrics) / image_count,
         "mean_recall": sum(item["recall"] for item in metrics) / image_count,
         "micro_precision": micro_precision,
