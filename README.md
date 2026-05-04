@@ -35,6 +35,8 @@ scripts/
   run_pipeline.py
   evaluate_pipeline.py
   evaluate_gold_annotations.py
+  export_detector_dataset.py
+  report_gold_benchmark.py
   import_cvat_native.py
 ```
 
@@ -126,7 +128,33 @@ python3 scripts/evaluate_gold_annotations.py \
   --summary-path outputs/evaluation/gold_annotations_current.json
 ```
 
+Create a human-readable benchmark report:
+
+```bash
+python3 scripts/report_gold_benchmark.py \
+  outputs/evaluation/gold_annotations_current.json \
+  --markdown-path outputs/evaluation/gold_benchmark_report.md \
+  --csv-path outputs/evaluation/gold_benchmark_per_plate.csv
+```
+
+Export the same gold annotations into a local YOLO-style detector dataset:
+
+```bash
+python3 scripts/export_detector_dataset.py \
+  --image-dir data/benchmark/images \
+  --annotations-dir data/annotations/gold \
+  --output-dir data/model_training/yolo_gold
+```
+
+This creates local training files with three classes:
+
+- `colony_point`
+- `colony_ellipse`
+- `label_region`
+
 The gold benchmark intentionally lives in `data/benchmark/images` and `data/annotations/gold` so the same annotated plates can be used locally, in CI, and inside the deployed container when needed.
+
+For the full validation loop, see [LAB_GRADE_ROADMAP.md](./LAB_GRADE_ROADMAP.md).
 
 ## Deploy with Docker
 
