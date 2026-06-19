@@ -15,7 +15,7 @@ from gold_experience.pipeline import ColonyCounterPipeline
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate the Gold Experience pipeline on a dataset.")
+    parser = argparse.ArgumentParser(description="Evaluate the Apricot legacy rule-based pipeline on a dataset.")
     parser.add_argument("dataset_dir", type=Path)
     parser.add_argument("--summary-path", type=Path, default=None)
     args = parser.parse_args()

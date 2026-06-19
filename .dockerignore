@@ -3,5 +3,27 @@
 __pycache__
 *.pyc
 .DS_Store
+*.egg-info
+*.docx
+*.pdf
+Screenshot *.png
+bonk*.jpeg
+bonk*.png
+goldenexperience
+goldenexperience.zip
+build
+dist
+.pytest_cache
 data/generated
+data/model_training
+data/synthetic_apricot*
 outputs
+uploads
+runs
+reports/*.jpg
+reports/*.jpeg
+reports/*.png
+models/*.pt
+*.pt
+!models/apricot_clean_dot_counter_v1.pt
+!models/apricot_merged_colony_counter_v1.pt

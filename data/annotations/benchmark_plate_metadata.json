@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "created": "2026-05-09",
+  "scope": "data/benchmark/images",
+  "allowed_organism_labels": [
+    "E. coli",
+    "S. cerevisiae",
+    "K. phaffii",
+    "generic bacteria",
+    "unknown"
+  ],
+  "notes": [
+    "Organism labels are derived from legacy AGAR_representative JSON metadata where available.",
+    "Legacy bacterial species outside the named choices are collapsed to generic bacteria.",
+    "C.albicans is marked unknown because it is not one of the allowed organism labels and should not be guessed as S. cerevisiae or K. phaffii."
+  ],
+  "plates": {
+    "1399 copy.jpg": {
+      "organism": "generic bacteria",
+      "source_classes": ["S.aureus"],
+      "source_metadata": "AGAR_representative/higher-resolution/bright/1399.json",
+      "confidence": "metadata"
+    },
+    "14380 copy.jpg": {
+      "organism": "generic bacteria",
+      "source_classes": ["B.subtilis"],
+      "source_metadata": "AGAR_representative/lower-resolution/14380.json",
+      "confidence": "metadata"
+    },
+    "14410 copy.jpg": {
+      "organism": "generic bacteria",
+      "source_classes": ["E.coli", "S.aureus"],
+      "source_metadata": "AGAR_representative/lower-resolution/14410.json",
+      "confidence": "metadata",
+      "note": "Mixed bacterial metadata; collapsed to generic bacteria for the requested single-label organism field."
+    },
+    "14618 copy.jpg": {
+      "organism": "generic bacteria",
+      "source_classes": ["S.aureus"],
+      "source_metadata": "AGAR_representative/lower-resolution/14618.json",
+      "confidence": "metadata"
+    },
+    "518 copy.jpg": {
+      "organism": "generic bacteria",
+      "source_classes": ["S.aureus"],
+      "source_metadata": "AGAR_representative/higher-resolution/bright/518.json",
+      "confidence": "metadata"
+    },
+    "5207 copy.jpg": {
+      "organism": "E. coli",
+      "source_classes": ["E.coli"],
+      "source_metadata": "AGAR_representative/higher-resolution/dark/5207.json",
+      "confidence": "metadata"
+    },
+    "525 copy.jpg": {
+      "organism": "generic bacteria",
+      "source_classes": ["B.subtilis"],
+      "source_metadata": "AGAR_representative/higher-resolution/bright/525.json",
+      "confidence": "metadata"
+    },
+    "5270 copy.jpg": {
+      "organism": "generic bacteria",
+      "source_classes": ["B.subtilis"],
+      "source_metadata": "AGAR_representative/higher-resolution/dark/5270.json",
+      "confidence": "metadata"
+    },
+    "5271 copy.jpg": {
+      "organism": "E. coli",
+      "source_classes": ["E.coli"],
+      "source_metadata": "AGAR_representative/higher-resolution/dark/5271.json",
+      "confidence": "metadata"
+    },
+    "5308 copy.jpg": {
+      "organism": "generic bacteria",
+      "source_classes": ["S.aureus"],
+      "source_metadata": "AGAR_representative/higher-resolution/dark/5308.json",
+      "confidence": "metadata"
+    },
+    "5312 copy.jpg": {
+      "organism": "E. coli",
+      "source_classes": ["E.coli"],
+      "source_metadata": "AGAR_representative/higher-resolution/dark/5312.json",
+      "confidence": "metadata"
+    },
+    "736 copy.jpg": {
+      "organism": "generic bacteria",
+      "source_classes": ["P.aeruginosa"],
+      "source_metadata": "AGAR_representative/higher-resolution/bright/736.json",
+      "confidence": "metadata"
+    },
+    "971 copy.jpg": {
+      "organism": "unknown",
+      "source_classes": ["C.albicans"],
+      "source_metadata": "AGAR_representative/higher-resolution/bright/971.json",
+      "confidence": "metadata",
+      "note": "Legacy metadata identifies C.albicans, which is outside the requested label set."
+    }
+  }
+}

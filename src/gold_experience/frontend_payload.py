@@ -70,7 +70,7 @@ def build_frontend_payload(
     )
 
     return {
-        "engine": "gold-experience-v1",
+        "engine": "apricot-colony-counter",
         "image": {
             "filename": filename or "",
             "width": width,

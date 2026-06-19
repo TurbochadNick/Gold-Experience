@@ -3,177 +3,100 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gold Experience</title>
+    <title>Apricot Colony Counter</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="shell">
-      <aside class="sidebar">
+    <main class="app-shell">
+      <header class="topbar">
         <div class="brand">
-          <div class="brand-mark">GE</div>
+          <span class="brand-mark">A</span>
           <div>
-            <h1>Gold Experience</h1>
-            <p>Deployable Colony Counter MVP</p>
+            <h1>Apricot Colony Counter</h1>
+            <p>Single and batch yeast colony detection</p>
           </div>
         </div>
+        <div id="model-status" class="model-status">Checking model</div>
+      </header>
 
-        <section class="panel">
-          <h2>Detection Settings</h2>
-          <label class="control-label" for="threshold-range">Colony confidence</label>
-          <div class="range-row">
-            <input id="threshold-range" type="range" min="10" max="95" value="45" />
-            <span id="threshold-value">45%</span>
-          </div>
-          <label class="checkbox-row">
-            <input id="toggle-labels" type="checkbox" checked />
-            <span>Show filtered labels</span>
+      <section class="help-panel">
+        <div>
+          <h2>Supported Plate Schemas</h2>
+          <p><strong>clean_dots</strong> and <strong>merged_snowman</strong> are accepted now. <strong>streak_lines</strong> is coming later.</p>
+        </div>
+        <p class="privacy-note">Images are processed transiently for counting and are not retained for training.</p>
+      </section>
+
+      <section class="workspace">
+        <form id="predict-form" class="upload-panel" action="/predict" method="post" enctype="multipart/form-data">
+          <label id="drop-zone" class="drop-zone" for="file-input">
+            <input id="file-input" name="images" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple hidden />
+            <span class="drop-kicker">Petri dish image batch</span>
+            <strong id="file-name">Choose image</strong>
+            <span id="file-meta">JPG, PNG, or WebP</span>
           </label>
-          <label class="checkbox-row">
-            <input id="toggle-rejected" type="checkbox" />
-            <span>Show rejected candidates</span>
-          </label>
-        </section>
 
-        <section class="panel">
-          <h2>Pipeline Status</h2>
-          <div id="pipeline-steps" class="step-list"></div>
-          <p class="hint">All analysis runs on this service. No external model key is required.</p>
-        </section>
+          <div class="control-row">
+            <label for="confidence-range">Confidence</label>
+            <output id="confidence-value" for="confidence-range">0.25</output>
+          </div>
+          <input id="confidence-range" name="confidence" type="range" min="0.05" max="0.95" step="0.01" value="0.25" />
 
-        <section class="panel">
-          <h2>Detection Layers</h2>
-          <div class="legend">
-            <span class="legend-dot colony"></span>
-            <span>Colonies</span>
-            <strong id="legend-colonies">0</strong>
-          </div>
-          <div class="legend">
-            <span class="legend-dot label"></span>
-            <span>Labels</span>
-            <strong id="legend-labels">0</strong>
-          </div>
-          <div class="legend">
-            <span class="legend-dot rejected"></span>
-            <span>Rejected</span>
-            <strong id="legend-rejected">0</strong>
-          </div>
-        </section>
+          <button id="submit-button" class="primary-button" type="submit" disabled>Run Detection</button>
+          <p id="error-banner" class="error-banner" role="alert"></p>
+        </form>
 
-        <section class="panel">
-          <h2>Manual Review</h2>
-          <p id="selection-text" class="muted">Select a colony marker to remove it, or click inside the dish to add one.</p>
-          <div class="button-row">
-            <button id="remove-selected" class="secondary" disabled>Remove Selected</button>
-            <button id="reset-session" class="danger">Reset</button>
+        <section class="summary-panel">
+          <span class="summary-label">Total Colony Count</span>
+          <strong id="count-value">--</strong>
+          <div class="summary-meta">
+            <span id="threshold-used">Threshold --</span>
+            <span id="runtime-used">Runtime --</span>
+          </div>
+          <div class="summary-details">
+            <span id="schema-used">Schema --</span>
+            <span id="model-used">Model --</span>
+            <span id="batch-used">Images --</span>
+          </div>
+          <p id="reliability-warning" class="warning-banner"></p>
+          <div class="result-actions">
+            <a id="download-image" class="button-link disabled" href="#" download>Annotated Image</a>
+            <button id="download-json" class="secondary-button" type="button" disabled>JSON</button>
           </div>
         </section>
-      </aside>
+      </section>
 
-      <main class="main">
-        <header class="page-header">
-          <div>
-            <p class="eyebrow">Explainable Colony Detection</p>
-            <h2>Upload a plate and review the live result</h2>
-          </div>
-          <div class="upload-actions">
-            <input id="file-input" type="file" accept="image/*" hidden />
-            <button id="upload-button" class="primary">Upload Plate</button>
-            <button id="download-json" class="secondary" disabled>Export JSON</button>
-          </div>
-        </header>
+      <section id="results-panel" class="results-panel hidden">
+        <div class="image-heading">
+          <h2>Results</h2>
+          <span id="results-count">0 images</span>
+        </div>
+        <div id="result-cards" class="result-cards"></div>
+      </section>
 
-        <section id="hero-panel" class="hero">
-          <div class="hero-copy">
-            <h3>Single-service deployment</h3>
-            <p>
-              This build is set up so a lab can use Gold Experience as a web app. Upload an image,
-              process it on the server, and review the detected colonies directly in the browser.
-            </p>
-          </div>
-          <div class="hero-meta">
-            <div>
-              <span class="hero-label">Runtime</span>
-              <strong>Python + OpenCV</strong>
-            </div>
-            <div>
-              <span class="hero-label">Frontend</span>
-              <strong>No-build static app</strong>
-            </div>
-            <div>
-              <span class="hero-label">Deploy target</span>
-              <strong>Single container</strong>
-            </div>
-          </div>
-        </section>
-
-        <section id="loading-panel" class="loading-panel hidden">
-          <p id="loading-text">Uploading plate image...</p>
-          <div class="progress-track">
-            <div id="progress-bar" class="progress-bar"></div>
-          </div>
-        </section>
-
-        <section id="error-banner" class="error-banner hidden"></section>
-
-        <section id="stats-grid" class="stats-grid hidden">
-          <article class="stat-card">
-            <span class="stat-label">Visible Colonies</span>
-            <strong id="stat-colonies">0</strong>
-          </article>
-          <article class="stat-card">
-            <span class="stat-label">Labels Filtered</span>
-            <strong id="stat-labels">0</strong>
-          </article>
-          <article class="stat-card">
-            <span class="stat-label">Candidates</span>
-            <strong id="stat-candidates">0</strong>
-          </article>
-          <article class="stat-card">
-            <span class="stat-label">Corrections</span>
-            <strong id="stat-corrections">0</strong>
-          </article>
-          <article class="stat-card">
-            <span class="stat-label">Avg Confidence</span>
-            <strong id="stat-confidence">0%</strong>
-          </article>
-        </section>
-
-        <section id="results-layout" class="results-layout hidden">
-          <div class="canvas-panel">
-            <div id="viewer-shell" class="viewer-shell">
-              <svg id="analysis-svg" class="analysis-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"></svg>
-            </div>
-            <p id="file-meta" class="muted centered">Upload an image to begin.</p>
-          </div>
-
-          <div class="side-column">
-            <section class="panel">
-              <h2>Colony Data</h2>
-              <div class="table-shell">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>X</th>
-                      <th>Y</th>
-                      <th>Conf</th>
-                      <th>Area</th>
-                      <th>Label Risk</th>
-                    </tr>
-                  </thead>
-                  <tbody id="colony-table-body"></tbody>
-                </table>
-              </div>
-            </section>
-
-            <section class="panel">
-              <h2>Filtered Label Samples</h2>
-              <div id="label-list" class="label-list"></div>
-            </section>
-          </div>
-        </section>
-      </main>
-    </div>
+      <section id="detections-panel" class="detections-panel hidden">
+        <div class="image-heading">
+          <h2>Detections</h2>
+          <span id="detections-count">0 boxes</span>
+        </div>
+        <div class="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Image</th>
+                <th>Confidence</th>
+                <th>Center X</th>
+                <th>Center Y</th>
+                <th>Width</th>
+                <th>Height</th>
+              </tr>
+            </thead>
+            <tbody id="detections-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
 
     <script src="/app.js"></script>
   </body>

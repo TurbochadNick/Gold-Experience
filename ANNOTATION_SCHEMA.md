@@ -1,4 +1,4 @@
-# GxP Bio Annotation Schema
+# Apricot Colony Counter Annotation Schema
 
 Date: 2026-04-26
 
@@ -7,7 +7,7 @@ Date: 2026-04-26
 We intentionally separate:
 
 - **gold annotations** from CVAT
-- **user hints** from the live GxP upload flow
+- **user hints** from the live Apricot upload flow
 
 Gold annotations are trusted.
 User hints are weak supervision.
@@ -79,8 +79,8 @@ Example:
   ],
   "label_hints": [],
   "metadata": {
-    "source": "gxp_user",
-    "model_version": "gold-experience-v1",
+    "source": "apricot_user",
+    "model_version": "apricot-colony-counter-v1",
     "lab_id": "byu-test",
     "created_at": "2026-04-26T12:00:00Z"
   }

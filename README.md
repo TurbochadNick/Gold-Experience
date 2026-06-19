@@ -1,179 +1,345 @@
-# Gold Experience
+# Apricot Colony Counter
 
-Gold Experience is a rule-based MVP scaffold for plate detection, label rejection, colony counting, synthetic dataset generation, and evaluation.
+Apricot is a lightweight yeast colony counting web app. It serves a browser upload UI, accepts one plate image or a small batch, runs YOLO-based colony detection, and returns colony counts, detection boxes, schema routing metadata, and annotated image previews.
 
-## V1 pipeline
+The production app is deliberately only an inference service. Synthetic data generation and YOLO training are offline workflows.
 
-1. Detect the dish circle.
-2. Detect all blob-like candidates inside the plate.
-3. Classify candidates as `label` or `not label`.
-4. Score surviving `not label` candidates as plausible colonies.
-5. Count and render overlays.
+## Scope
 
-The synthetic generator produces automatic ground truth:
+Target organisms for v0:
 
-- dish circle
-- colony mask
-- label mask
-- colony centers and radii
-- label dot centers and radii
+- `Saccharomyces cerevisiae`
+- `Pichia pastoris`, also known as `Komagataella phaffii`
 
-## Layout
+Current common media and context:
 
-```text
-src/gold_experience/
-  synthetic.py
-  plate_detection.py
-  candidate_detection.py
-  label_filter.py
-  colony_scoring.py
-  pipeline.py
-  visualization.py
-  evaluation.py
-scripts/
-  generate_synthetic.py
-  run_pipeline.py
-  evaluate_pipeline.py
-  evaluate_gold_annotations.py
-  export_detector_dataset.py
-  report_gold_benchmark.py
-  import_cvat_native.py
-```
+- YPD yeast plates
+- LSLB / `E. coli` selection contexts with antibiotic selection markers
 
-## Setup
+Apricot is intended for preliminary yeast colony counting and still needs validation on real Dr. Ford plates before being treated as lab-grade.
+
+## Install
 
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
-pip install -e .
+pip install -e ".[dev]"
 ```
 
-## Generate synthetic plates
+Runtime dependencies are intentionally small for deployment:
 
-```bash
-python3 scripts/generate_synthetic.py data/generated/synthetic --count 25 --seed 7
+- `ultralytics`
+- `opencv-python-headless`
+- `pillow`
+- `numpy`
+- `gunicorn`
+
+The project uses the existing stdlib HTTP server locally and exposes a WSGI `app:app` entrypoint for Gunicorn on Render.
+
+## Run Locally
+
+Place the default clean-dot specialist weights at:
+
+```text
+models/apricot_clean_dot_counter_v1.pt
 ```
 
-## Run the pipeline
+Apricot can also use separately trained merged-colony specialist weights:
 
-```bash
-python3 scripts/run_pipeline.py data/generated/synthetic --output-dir outputs/run
+```text
+models/apricot_merged_colony_counter_v1.pt
 ```
 
-## Evaluate on synthetic data
+Set a custom path to select a specialist at runtime:
 
 ```bash
-python3 scripts/evaluate_pipeline.py data/generated/synthetic
+export APRICOT_MODEL_PATH=models/apricot_clean_dot_counter_v1.pt
+export APRICOT_MERGED_MODEL_PATH=models/apricot_merged_colony_counter_v1.pt
 ```
 
-This scaffold is intentionally explainable and easy to modify. It is designed to evolve toward real plate images, not to hide the logic inside a black-box detector.
-
-## Local web app
-
-Run the web app and API together:
+Start the local server:
 
 ```bash
-python3 scripts/serve_api.py --host 127.0.0.1 --port 8000
+python scripts/serve_api.py --host 127.0.0.1 --port 8000
 ```
 
 Then open [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
-The browser UI uploads the image to the same service. The response includes:
+Useful routes:
 
-- image size
-- detected dish circle
-- colony detections
-- filtered labels
-- rejected candidates
-- pipeline step summaries for the UI
+- `GET /`
+- `GET /health`
+- `POST /api/predict`
+- `POST /api/predict-batch`
+- `POST /predict`
+- `POST /analyze`
 
-The API is still available directly at `POST /analyze` and `GET /health`.
+If weights are missing, startup still succeeds and prediction requests return a clear service error. The health route reports configured model path, whether the file exists, whether the model is loaded, default confidence, upload limits, batch limits, schema support, and retention mode without training or loading YOLO.
 
-## Annotation Workflow
-
-We now have a first scaffold for manual plate annotation with CVAT plus per-image user hints.
-
-Docs:
-
-- [CVAT label spec](./CVAT_LABEL_SPEC.md)
-- [Annotation schema](./ANNOTATION_SCHEMA.md)
-- [CVAT + GxP integration plan](./CVAT_GXP_PLAN.md)
-
-Python models:
-
-- `src/gold_experience/annotations.py`
-
-Import a CVAT native export:
+Single-image API example:
 
 ```bash
-python3 scripts/import_cvat_native.py path/to/annotations.xml --output-dir data/annotations/gold
+curl -X POST http://127.0.0.1:8000/api/predict \
+  -F "confidence=0.25" \
+  -F "file=@plate1.jpg"
 ```
 
-Expected CVAT labels:
-
-- `dish`
-- `colony_point` for small dot-like colonies
-- `colony_ellipse` for larger diffuse/blob-like colonies
-- `label_region`
-- `ignore_region`
-
-Legacy `colony` labels are still accepted: point shapes import as point colonies, and ellipse shapes import as ellipse colonies.
-
-Evaluate the current detector against the imported gold annotations:
+Batch API example:
 
 ```bash
-python3 scripts/evaluate_gold_annotations.py \
-  --image-dir data/benchmark/images \
-  --annotations-dir data/annotations/gold \
-  --summary-path outputs/evaluation/gold_annotations_current.json
+curl -X POST http://127.0.0.1:8000/api/predict-batch \
+  -F "confidence=0.25" \
+  -F "images=@plate1.jpg" \
+  -F "images=@plate2.png"
 ```
 
-Create a human-readable benchmark report:
+Supported upload types are JPG, JPEG, PNG, and WebP.
+
+## Privacy And Retention
+
+Default retention mode is:
+
+```text
+APRICOT_RETENTION_MODE=ephemeral
+```
+
+In ephemeral mode, uploaded images are processed transiently for counting and are not retained for training. Annotated images are returned to the browser as base64 data URLs and normal request artifacts are discarded. The service does not copy user uploads into `data/`, `data/generated/`, `eval_images/`, `runs/`, or any training dataset.
+
+Optional local debugging:
 
 ```bash
-python3 scripts/report_gold_benchmark.py \
-  outputs/evaluation/gold_annotations_current.json \
-  --markdown-path outputs/evaluation/gold_benchmark_report.md \
-  --csv-path outputs/evaluation/gold_benchmark_per_plate.csv
+export APRICOT_RETENTION_MODE=debug
 ```
 
-Export the same gold annotations into a local YOLO-style detector dataset:
+Debug mode may keep request-scoped upload/output artifacts under `uploads/` and `outputs/` for inspection. Do not use debug retention for normal Render operation.
+
+Batch and upload limits:
+
+```text
+APRICOT_MAX_UPLOAD_MB=12
+APRICOT_MAX_BATCH_IMAGES=10
+APRICOT_MAX_TOTAL_UPLOAD_MB=48
+```
+
+Current schema support:
+
+- `clean_dots`: primary supported path.
+- `merged_snowman`: accepted, with reduced reliability until more validation is available.
+- `streak_lines`: coming later.
+
+## Test And Smoke
 
 ```bash
-python3 scripts/export_detector_dataset.py \
-  --image-dir data/benchmark/images \
-  --annotations-dir data/annotations/gold \
-  --output-dir data/model_training/yolo_gold
+make test
+make generate-small
+make generate-suite
+make evaluate-synthetic
+make run
+make smoke-app
 ```
 
-This creates local training files with three classes:
-
-- `colony_point`
-- `colony_ellipse`
-- `label_region`
-
-The gold benchmark intentionally lives in `data/benchmark/images` and `data/annotations/gold` so the same annotated plates can be used locally, in CI, and inside the deployed container when needed.
-
-For the full validation loop, see [LAB_GRADE_ROADMAP.md](./LAB_GRADE_ROADMAP.md).
-
-## Deploy with Docker
-
-Build and run locally:
+Equivalent direct commands:
 
 ```bash
-docker build -t gold-experience .
-docker run --rm -p 8000:8000 gold-experience
+python -m pytest
+python scripts/smoke_generate.py --overwrite
+python scripts/generate_synthetic.py --overwrite
+python scripts/evaluate_synthetic_robustness.py
+python scripts/smoke_app.py --base-url http://127.0.0.1:8000
 ```
 
-For a hosted deployment, the repo is now structured as a single container service:
+Tests are fast and do not require real YOLO weights or training. Inference is monkeypatched where needed.
 
-- no OpenAI or Roboflow key required
-- one web process serves both the UI and the analysis endpoint
-- uploads are processed on the server CPU with OpenCV
+## Synthetic-Only Training Stage
 
-That makes it straightforward to deploy on Render, Railway, Fly.io, or a lab-managed VM.
+We currently only have synthetic data. That is expected until Dr. Ford can provide live colony images.
 
-## Notes
+Synthetic validation does **not** prove real-world accuracy. It only tells us whether the model learned this generator and whether it survives controlled synthetic perturbations. Treat these results as engineering signals for the training/evaluation pipeline, not as a lab-grade performance claim.
 
-- `frontend/GoldExperienceConnectedApp.jsx` is still in the repo as a richer React direction, but the deployable MVP now lives in `web/`.
-- This is a productization pass, not a model-quality pass. The next step after deployment is tuning the candidate detector and label gate on real plate images.
+Apricot uses a three-tier synthetic protocol:
+
+- `train_standard`: standard synthetic training images.
+- `val_standard`: same-generator validation images. Useful for detecting training regressions, but still synthetic.
+- Synthetic stress suite: out-of-distribution synthetic folders that perturb one regime at a time.
+
+Stress splits:
+
+- `test_lighting_shift`: brightness, contrast, gradients, and vignette changes.
+- `test_agar_color_shift`: alternate dark agar color.
+- `test_blur_compression`: defocus blur plus lower-quality JPEG compression.
+- `test_density_extremes`: sparse and dense colony-count regimes.
+- `test_size_extremes`: very small and very large colonies.
+- `test_plate_position_shift`: petri dish shifted away from image center.
+- `test_artifact_noise`: synthetic dust, scratches, and smudges.
+
+Generate a small 12-plate smoke dataset:
+
+```bash
+python scripts/smoke_generate.py --out data/generated/apricot_smoke_12 --overwrite
+```
+
+Generate the full named train/validation/stress suite with one command:
+
+```bash
+python scripts/generate_synthetic.py \
+  --out data/generated/apricot_synthetic_suite_v1 \
+  --plates 100 \
+  --stress-plates 20 \
+  --img-size 2000 \
+  --species s_cerevisiae \
+  --medium YPD \
+  --overwrite
+```
+
+Expected suite contract:
+
+```text
+data/generated/apricot_synthetic_suite_v1/
+  dataset.yaml
+  suite_manifest.json
+  train_standard/
+    dataset.yaml
+    manifest.json
+    images/
+    labels/
+  val_standard/
+    dataset.yaml
+    manifest.json
+    images/
+    labels/
+  test_lighting_shift/
+  test_agar_color_shift/
+  test_blur_compression/
+  test_density_extremes/
+  test_size_extremes/
+  test_plate_position_shift/
+  test_artifact_noise/
+```
+
+The suite-level `dataset.yaml` trains on `train_standard/images` and validates on `val_standard/images`. Each split has its own `manifest.json` with generator parameters and `expected_colony_count` per image. Known counts come from generated labels/manifests, not manual input.
+
+## Train Offline
+
+Training is not part of the web service. Run it locally or in a training job:
+
+```bash
+python scripts/train_yolo.py \
+  --schema clean_dots \
+  --data data/generated/apricot_synthetic_suite_v1/dataset.yaml \
+  --epochs 50 \
+  --imgsz 640 \
+  --batch 8 \
+  --output models/apricot_clean_dot_counter_v1.pt
+```
+
+Train the merged-colony specialist from a dataset whose manifests declare `schema: merged_snowman`:
+
+```bash
+python scripts/train_yolo.py \
+  --schema merged_snowman \
+  --data data/generated/apricot_merged_snowman_suite_v1/dataset.yaml \
+  --epochs 50 \
+  --imgsz 640 \
+  --batch 8 \
+  --output models/apricot_merged_colony_counter_v1.pt
+```
+
+`scripts/train_yolo.py` defaults to clean-dot-only training and refuses merged-snowman or streak-line data on the clean-dot path. Use `--include-schema <schema>` only when intentionally mixing another schema into a separate experiment. The `merged_snowman` path defaults to `models/apricot_merged_colony_counter_v1.pt`, so it does not overwrite `models/apricot_clean_dot_counter_v1.pt`.
+
+Ultralytics writes training runs under `runs/`. `scripts/train_yolo.py` copies the selected `best.pt` to the selected output path, or you can set `APRICOT_MODEL_PATH` to another trained weight file.
+
+## Evaluate Synthetic Robustness
+
+After training, evaluate all synthetic regimes with one command:
+
+```bash
+python scripts/evaluate_synthetic_robustness.py \
+  --suite data/generated/apricot_synthetic_suite_v1 \
+  --model models/apricot_clean_dot_counter_v1.pt \
+  --out outputs/synthetic_robustness
+```
+
+The evaluator sweeps confidence thresholds:
+
+```text
+0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50
+```
+
+Outputs:
+
+```text
+outputs/synthetic_robustness/
+  synthetic_robustness_per_image.csv
+  synthetic_robustness_summary.csv
+  annotated_samples/
+```
+
+The summary CSV reports mean absolute count error, mean percent count error, exact-count rate, and the best confidence threshold per split. Use it to see which synthetic regimes the model handles and where it fails.
+
+## Transition To Real Dr. Ford Images
+
+When live colony images arrive, keep this synthetic suite as a regression harness and add a separate real-image evaluation set:
+
+- Store real images and annotations separately from generated data.
+- Do not tune thresholds on the final real test set.
+- Compare synthetic stress failures against real failure modes.
+- Update training only after licensing, consent, and annotation format are clear.
+- Report real-world accuracy only from real held-out Dr. Ford images, not from synthetic validation.
+
+## Deploy On Render
+
+`render.yaml` is configured for a Python web service:
+
+```bash
+pip install --upgrade pip && pip install .
+gunicorn app:app --bind 0.0.0.0:$PORT
+```
+
+Render environment variable:
+
+```text
+APRICOT_MODEL_PATH=models/apricot_clean_dot_counter_v1.pt
+APRICOT_MERGED_MODEL_PATH=models/apricot_merged_colony_counter_v1.pt
+APRICOT_RETENTION_MODE=ephemeral
+APRICOT_MAX_BATCH_IMAGES=10
+```
+
+Health check path:
+
+```text
+/health
+```
+
+The Render start command only launches the web server. It must not generate data, download datasets, or train YOLO.
+
+## Repository Hygiene
+
+Tracked placeholder directories:
+
+- `uploads/.gitkeep`
+- `outputs/.gitkeep`
+- `models/.gitkeep`
+- `data/generated/.gitkeep`
+- `runs/.gitkeep`
+
+Ignored runtime or generated content:
+
+- uploads
+- annotated outputs
+- generated synthetic datasets
+- model training datasets
+- YOLO training runs
+- model weight files
+
+Do not commit large generated datasets, uploads, annotated outputs, training runs, or heavyweight model binaries. Keep reproducible commands and manifests in the repo instead.
+
+## Legacy And Evaluation Utilities
+
+The older explainable OpenCV pipeline remains under `src/gold_experience/` for reference and evaluation work. Annotation and benchmark helpers are still available:
+
+- [CVAT label spec](CVAT_LABEL_SPEC.md)
+- [Annotation schema](ANNOTATION_SCHEMA.md)
+- [CVAT + Apricot integration plan](CVAT_GXP_PLAN.md)
+- [Lab-grade roadmap](LAB_GRADE_ROADMAP.md)
+
+For current deployment notes, see [APRICOT_RENDER_HANDOFF.md](APRICOT_RENDER_HANDOFF.md). For model limitations and intended use, see [docs/model_card.md](docs/model_card.md).

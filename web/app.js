@@ -1,67 +1,57 @@
 const state = {
-  analysis: null,
-  fileName: "",
-  imageUrl: "",
-  threshold: 0.45,
-  showLabels: true,
-  showRejected: false,
-  analyzing: false,
-  stageIndex: 0,
-  selectedId: null,
-  manualColonies: [],
-  removedIds: new Set(),
-  corrections: { added: 0, removed: 0 },
+  files: [],
+  prediction: null,
+  loading: false,
   error: "",
+  maxUploadBytes: 12 * 1024 * 1024,
+  maxTotalUploadBytes: 48 * 1024 * 1024,
+  maxBatchImages: 10,
 };
 
-const LOADING_STEPS = [
-  "Uploading plate image...",
-  "Detecting dish circle...",
-  "Finding blob candidates...",
-  "Filtering likely labels...",
-  "Scoring colonies...",
-];
+const ACCEPTED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp"]);
+const ACCEPTED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const SCHEMA_DISPLAY_NAMES = {
+  clean_dots: "Clean dots",
+  merged_snowman: "Merged colonies",
+  streak_lines: "Streak lines",
+};
 
 const elements = {
+  batchUsed: document.getElementById("batch-used"),
+  confidenceRange: document.getElementById("confidence-range"),
+  confidenceValue: document.getElementById("confidence-value"),
+  countValue: document.getElementById("count-value"),
+  detectionsBody: document.getElementById("detections-body"),
+  detectionsCount: document.getElementById("detections-count"),
+  detectionsPanel: document.getElementById("detections-panel"),
+  downloadImage: document.getElementById("download-image"),
   downloadJson: document.getElementById("download-json"),
+  dropZone: document.getElementById("drop-zone"),
   errorBanner: document.getElementById("error-banner"),
   fileInput: document.getElementById("file-input"),
   fileMeta: document.getElementById("file-meta"),
-  heroPanel: document.getElementById("hero-panel"),
-  labelList: document.getElementById("label-list"),
-  legendColonies: document.getElementById("legend-colonies"),
-  legendLabels: document.getElementById("legend-labels"),
-  legendRejected: document.getElementById("legend-rejected"),
-  loadingPanel: document.getElementById("loading-panel"),
-  loadingText: document.getElementById("loading-text"),
-  pipelineSteps: document.getElementById("pipeline-steps"),
-  progressBar: document.getElementById("progress-bar"),
-  removeSelected: document.getElementById("remove-selected"),
-  resetSession: document.getElementById("reset-session"),
-  resultsLayout: document.getElementById("results-layout"),
-  selectionText: document.getElementById("selection-text"),
-  statsCandidates: document.getElementById("stat-candidates"),
-  statsColonies: document.getElementById("stat-colonies"),
-  statsConfidence: document.getElementById("stat-confidence"),
-  statsCorrections: document.getElementById("stat-corrections"),
-  statsGrid: document.getElementById("stats-grid"),
-  statsLabels: document.getElementById("stat-labels"),
-  svg: document.getElementById("analysis-svg"),
-  tableBody: document.getElementById("colony-table-body"),
-  thresholdRange: document.getElementById("threshold-range"),
-  thresholdValue: document.getElementById("threshold-value"),
-  toggleLabels: document.getElementById("toggle-labels"),
-  toggleRejected: document.getElementById("toggle-rejected"),
-  uploadButton: document.getElementById("upload-button"),
+  fileName: document.getElementById("file-name"),
+  form: document.getElementById("predict-form"),
+  modelStatus: document.getElementById("model-status"),
+  modelUsed: document.getElementById("model-used"),
+  reliabilityWarning: document.getElementById("reliability-warning"),
+  resultCards: document.getElementById("result-cards"),
+  resultsCount: document.getElementById("results-count"),
+  resultsPanel: document.getElementById("results-panel"),
+  runtimeUsed: document.getElementById("runtime-used"),
+  schemaUsed: document.getElementById("schema-used"),
+  submitButton: document.getElementById("submit-button"),
+  thresholdUsed: document.getElementById("threshold-used"),
 };
 
-let loadingTimer = null;
-
-function revokeImageUrl() {
-  if (state.imageUrl) {
-    URL.revokeObjectURL(state.imageUrl);
-    state.imageUrl = "";
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) {
+    return "";
   }
+  if (bytes < 1024 * 1024) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function setError(message) {
@@ -69,440 +59,346 @@ function setError(message) {
   render();
 }
 
-function resetCorrections() {
-  state.manualColonies = [];
-  state.removedIds = new Set();
-  state.corrections = { added: 0, removed: 0 };
-  state.selectedId = null;
+function isAcceptedImage(file) {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  return ACCEPTED_EXTENSIONS.has(extension) || ACCEPTED_MIME_TYPES.has(file.type);
 }
 
-function fullReset() {
-  state.analysis = null;
-  state.fileName = "";
-  state.analyzing = false;
-  state.stageIndex = 0;
-  resetCorrections();
-  setError("");
-  revokeImageUrl();
-  elements.fileInput.value = "";
+function setFiles(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) {
+    return;
+  }
+  if (files.length > state.maxBatchImages) {
+    setError(`Too many images. Maximum batch size is ${state.maxBatchImages}.`);
+    return;
+  }
+  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+  if (totalBytes > state.maxTotalUploadBytes) {
+    setError(`Batch is too large. Maximum total size is ${formatBytes(state.maxTotalUploadBytes)}.`);
+    return;
+  }
+  const invalidFile = files.find((file) => !isAcceptedImage(file));
+  if (invalidFile) {
+    setError(`Unsupported file type: ${invalidFile.name}. Upload JPG, PNG, or WebP images.`);
+    return;
+  }
+  const oversizedFile = files.find((file) => file.size > state.maxUploadBytes);
+  if (oversizedFile) {
+    setError(`${oversizedFile.name} is too large. Maximum single-image size is ${formatBytes(state.maxUploadBytes)}.`);
+    return;
+  }
+
+  state.files = files;
+  state.prediction = null;
+  state.error = "";
   render();
 }
 
-function getBaseColonies() {
-  if (!state.analysis) {
+function getSuccessfulResults() {
+  if (!state.prediction) {
     return [];
   }
-  return state.analysis.colonies.filter((item) => !state.removedIds.has(item.id));
-}
-
-function getVisibleColonies() {
-  return [...getBaseColonies(), ...state.manualColonies].filter((item) => item.conf >= state.threshold);
-}
-
-function getAverageConfidence() {
-  const visible = getVisibleColonies();
-  if (visible.length === 0) {
-    return 0;
+  if (Array.isArray(state.prediction.results)) {
+    return state.prediction.results;
   }
-  return visible.reduce((sum, item) => sum + item.conf, 0) / visible.length;
+  return state.prediction.ok ? [state.prediction] : [];
 }
 
-function getSelectedColony() {
-  return getVisibleColonies().find((item) => item.id === state.selectedId) || null;
+function getFailedResults() {
+  return state.prediction?.errors || [];
 }
 
-function startLoading() {
-  state.analyzing = true;
-  state.stageIndex = 0;
-  if (loadingTimer) {
-    window.clearInterval(loadingTimer);
+function getPrimaryImageHref() {
+  const first = getSuccessfulResults().find((result) => result.annotated_image_data_url || result.annotated_image_url);
+  return first?.annotated_image_data_url || first?.annotated_image_url || "#";
+}
+
+function uniqueValues(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function formatSchema(schema) {
+  return SCHEMA_DISPLAY_NAMES[schema] || String(schema || "Unknown").replaceAll("_", " ");
+}
+
+function selectedSchema(result) {
+  return result?.selected_schema || result?.chosen_schema || result?.model?.schema || result?.schema;
+}
+
+function selectedModelPath(result) {
+  return result?.selected_model?.path || result?.chosen_model?.path || result?.model?.path || result?.model_path;
+}
+
+function filenameForPath(path) {
+  return String(path || "").split(/[\\/]/).filter(Boolean).pop() || "";
+}
+
+function specialistPathLabel(payload) {
+  const specialists = payload?.model_specialists || {};
+  const cleanPath =
+    specialists.clean_dots?.default_path ||
+    specialists.clean_dots?.path ||
+    "models/apricot_clean_dot_counter_v1.pt";
+  const mergedPath =
+    specialists.merged_snowman?.default_path ||
+    specialists.merged_snowman?.path ||
+    "models/apricot_merged_colony_counter_v1.pt";
+  return `Clean ${filenameForPath(cleanPath)} · Merged ${filenameForPath(mergedPath)}`;
+}
+
+function renderSummary() {
+  const prediction = state.prediction;
+  const results = getSuccessfulResults();
+  const failures = getFailedResults();
+  const totalCount = prediction?.count_total ?? prediction?.count;
+  const threshold = prediction?.confidence_threshold ?? prediction?.confidence ?? results[0]?.confidence_threshold;
+  const modelNames = uniqueValues(results.map(selectedModelPath));
+  const schemas = uniqueValues(results.map(selectedSchema));
+  const warnings = uniqueValues(results.map((result) => result.reliability_warning));
+
+  elements.countValue.textContent = totalCount === undefined ? "--" : String(totalCount);
+  elements.thresholdUsed.textContent = threshold === undefined ? "Threshold --" : `Threshold ${Number(threshold).toFixed(2)}`;
+  elements.runtimeUsed.textContent = results.length === 1 && results[0].duration_ms ? `Runtime ${results[0].duration_ms} ms` : "Runtime --";
+  elements.schemaUsed.textContent =
+    schemas.length === 0 ? "Counted as --" : `Counted as ${schemas.length === 1 ? formatSchema(schemas[0]) : "mixed"}`;
+  elements.modelUsed.textContent = modelNames.length === 0 ? "Model --" : `Model ${modelNames.length === 1 ? modelNames[0] : "mixed"}`;
+  elements.batchUsed.textContent = prediction
+    ? `Images ${results.length}${failures.length ? `, Failed ${failures.length}` : ""}`
+    : "Images --";
+  elements.reliabilityWarning.textContent = warnings[0] || "";
+  elements.reliabilityWarning.classList.toggle("visible", Boolean(warnings[0]));
+}
+
+function renderUpload() {
+  elements.confidenceValue.textContent = Number(elements.confidenceRange.value).toFixed(2);
+  elements.submitButton.disabled = !state.files.length || state.loading;
+  elements.submitButton.textContent = state.loading ? "Counting..." : state.files.length > 1 ? "Run Batch" : "Run Detection";
+
+  if (!state.files.length) {
+    elements.fileName.textContent = "Choose image";
+    elements.fileMeta.textContent = `JPG, PNG, or WebP. Up to ${state.maxBatchImages} images.`;
+    return;
   }
-  loadingTimer = window.setInterval(() => {
-    if (state.stageIndex < LOADING_STEPS.length - 1) {
-      state.stageIndex += 1;
-      render();
-    }
-  }, 450);
-}
-
-function stopLoading() {
-  state.analyzing = false;
-  state.stageIndex = LOADING_STEPS.length - 1;
-  if (loadingTimer) {
-    window.clearInterval(loadingTimer);
-    loadingTimer = null;
+  if (state.files.length === 1) {
+    elements.fileName.textContent = state.files[0].name;
+    elements.fileMeta.textContent = formatBytes(state.files[0].size);
+    return;
   }
-}
-
-function renderPipeline() {
-  const steps = [];
-  if (state.analyzing) {
-    LOADING_STEPS.forEach((label, index) => {
-      let status = "waiting";
-      if (index < state.stageIndex) {
-        status = "done";
-      } else if (index === state.stageIndex) {
-        status = "active";
-      }
-      steps.push({ label, status, detail: "" });
-    });
-  } else if (state.analysis) {
-    state.analysis.pipeline_steps.forEach((item) => {
-      steps.push({ label: item.label, status: item.status, detail: item.detail || "" });
-    });
-  } else {
-    [
-      "Dish Detection",
-      "Candidate Detection",
-      "Label Filter",
-      "Colony Scoring",
-      "Manual Review",
-    ].forEach((label) => steps.push({ label, status: "waiting", detail: "" }));
-  }
-
-  elements.pipelineSteps.innerHTML = steps
-    .map(
-      (step) => `
-        <div class="step ${step.status}">
-          <span>${step.status === "done" ? "✓" : step.status === "active" ? "..." : "o"}</span>
-          <span>${step.label}</span>
-          <span class="detail">${step.detail || ""}</span>
-        </div>
-      `,
-    )
-    .join("");
-}
-
-function renderStats() {
-  const hasAnalysis = Boolean(state.analysis);
-  const visibleColonies = getVisibleColonies();
-  const summary = state.analysis?.summary || {
-    candidate_count: 0,
-    label_count: 0,
-    rejected_count: 0,
-  };
-
-  elements.statsGrid.classList.toggle("hidden", !hasAnalysis);
-  elements.resultsLayout.classList.toggle("hidden", !hasAnalysis);
-  elements.downloadJson.disabled = !hasAnalysis;
-  elements.heroPanel.classList.toggle("hidden", hasAnalysis || state.analyzing);
-
-  elements.statsColonies.textContent = String(visibleColonies.length);
-  elements.statsLabels.textContent = String(summary.label_count);
-  elements.statsCandidates.textContent = String(summary.candidate_count);
-  elements.statsCorrections.textContent = String(state.corrections.added + state.corrections.removed);
-  elements.statsConfidence.textContent = `${Math.round(getAverageConfidence() * 100)}%`;
-
-  elements.legendColonies.textContent = String(visibleColonies.length);
-  elements.legendLabels.textContent = String(summary.label_count);
-  elements.legendRejected.textContent = String(summary.rejected_count);
+  const totalBytes = state.files.reduce((sum, file) => sum + file.size, 0);
+  elements.fileName.textContent = `${state.files.length} images selected`;
+  elements.fileMeta.textContent = formatBytes(totalBytes);
 }
 
 function renderError() {
   elements.errorBanner.textContent = state.error;
-  elements.errorBanner.classList.toggle("hidden", !state.error);
+  elements.errorBanner.classList.toggle("visible", Boolean(state.error));
 }
 
-function renderLoading() {
-  elements.loadingPanel.classList.toggle("hidden", !state.analyzing);
-  if (!state.analyzing) {
-    elements.progressBar.style.width = "0%";
-    return;
-  }
-  elements.loadingText.textContent = LOADING_STEPS[state.stageIndex];
-  elements.progressBar.style.width = `${((state.stageIndex + 1) / LOADING_STEPS.length) * 100}%`;
+function renderDownloads() {
+  const hasResults = getSuccessfulResults().length > 0;
+  const annotatedHref = getPrimaryImageHref();
+  elements.downloadImage.href = annotatedHref;
+  elements.downloadImage.classList.toggle("disabled", !hasResults || annotatedHref === "#");
+  elements.downloadJson.disabled = !state.prediction;
 }
 
-function renderTable() {
-  const selectedId = state.selectedId;
-  const visibleColonies = getVisibleColonies();
-  elements.tableBody.innerHTML = visibleColonies
-    .slice(0, 150)
-    .map(
-      (item, index) => `
-        <tr data-select-id="${item.id}" class="${selectedId === item.id ? "selected-row" : ""}">
-          <td>${index + 1}</td>
-          <td>${Math.round(item.x)}</td>
-          <td>${Math.round(item.y)}</td>
-          <td>${Math.round(item.conf * 100)}%</td>
-          <td>${Math.round(item.area)}</td>
-          <td>${Math.round(item.label_score * 100)}%</td>
-        </tr>
-      `,
-    )
-    .join("");
-}
+function renderResults() {
+  const results = getSuccessfulResults();
+  const failures = getFailedResults();
+  const hasAny = results.length > 0 || failures.length > 0;
+  elements.resultsPanel.classList.toggle("hidden", !hasAny);
+  elements.resultsCount.textContent = `${results.length} processed${failures.length ? `, ${failures.length} failed` : ""}`;
 
-function renderLabelList() {
-  const labels = state.analysis?.labels || [];
-  elements.labelList.innerHTML = labels
-    .slice(0, 40)
-    .map(
-      (item) => `
-        <div class="label-card">
-          <strong>${Math.round(item.label_score * 100)}% label score</strong>
-          <div class="muted">x=${Math.round(item.x)} y=${Math.round(item.y)} r=${item.r.toFixed(1)}</div>
-          <div class="muted">contrast ${item.local_contrast.toFixed(0)} | circularity ${item.circularity.toFixed(2)}</div>
-        </div>
-      `,
-    )
-    .join("");
-}
-
-function svgPoint(event) {
-  const svg = elements.svg;
-  const point = svg.createSVGPoint();
-  point.x = event.clientX;
-  point.y = event.clientY;
-  return point.matrixTransform(svg.getScreenCTM().inverse());
-}
-
-function renderSvg() {
-  const analysis = state.analysis;
-  if (!analysis) {
-    elements.svg.setAttribute("viewBox", "0 0 100 100");
-    elements.svg.innerHTML = "";
-    elements.fileMeta.textContent = "Upload an image to begin.";
-    return;
-  }
-
-  const visibleColonies = getVisibleColonies();
-  const labels = state.showLabels ? analysis.labels : [];
-  const rejected = state.showRejected ? analysis.rejected : [];
-  const dish = analysis.dish;
-  const image = analysis.image;
-
-  elements.svg.setAttribute("viewBox", `0 0 ${image.width} ${image.height}`);
-  elements.fileMeta.textContent = `${state.fileName} | ${image.width}x${image.height} | click inside the dish to add a colony`;
-
-  const rejectedMarkup = rejected
-    .map(
-      (item) => `
-        <circle cx="${item.x}" cy="${item.y}" r="${Math.max(4, item.r)}" fill="rgba(102, 200, 255, 0.08)" stroke="rgba(102, 200, 255, 0.9)" stroke-width="1.5" stroke-dasharray="5 4"></circle>
-      `,
-    )
-    .join("");
-
-  const labelMarkup = labels
-    .map(
-      (item) => `
-        <g>
-          <circle cx="${item.x}" cy="${item.y}" r="${Math.max(4, item.r)}" fill="rgba(255, 113, 109, 0.10)" stroke="rgba(255, 113, 109, 0.95)" stroke-width="2"></circle>
-          <circle cx="${item.x}" cy="${item.y}" r="1.7" fill="rgba(255, 113, 109, 1)"></circle>
-        </g>
-      `,
-    )
-    .join("");
-
-  const colonyMarkup = visibleColonies
-    .map((item) => {
-      const selected = item.id === state.selectedId;
-      const selectionRing = selected
-        ? `<circle cx="${item.x}" cy="${item.y}" r="${item.r + 6}" fill="none" stroke="#ffffff" stroke-width="2" stroke-dasharray="5 4"></circle>`
-        : "";
+  const resultMarkup = results
+    .map((result) => {
+      const imageSrc = result.annotated_image_data_url || result.annotated_image_url || "";
+      const warning = result.reliability_warning ? `<p class="warning-inline">${result.reliability_warning}</p>` : "";
+      const countedAs = selectedSchema(result);
+      const routedAs = result.route_schema || result.schema;
+      const schemaText = routedAs && routedAs !== countedAs
+        ? `${formatSchema(countedAs)} · route ${formatSchema(routedAs)}`
+        : formatSchema(countedAs);
+      const modelPath = selectedModelPath(result);
       return `
-        <g data-colony-id="${item.id}">
-          ${selectionRing}
-          <circle cx="${item.x}" cy="${item.y}" r="${Math.max(4, item.r)}" fill="rgba(63, 224, 143, 0.10)" stroke="rgba(63, 224, 143, 0.95)" stroke-width="${selected ? 3 : 2}"></circle>
-          <circle cx="${item.x}" cy="${item.y}" r="1.8" fill="rgba(63, 224, 143, 1)"></circle>
-        </g>
+        <article class="result-card">
+          <div class="result-card-header">
+            <div>
+              <h3>${result.filename || "image"}</h3>
+              <span>${schemaText} · ${modelPath || "model unknown"} · ${Number(result.confidence_threshold ?? result.confidence ?? 0).toFixed(2)}</span>
+            </div>
+            <strong>${result.count}</strong>
+          </div>
+          ${warning}
+          ${imageSrc ? `<img src="${imageSrc}" alt="Annotated result for ${result.filename || "image"}" />` : ""}
+        </article>
       `;
     })
     .join("");
 
-  elements.svg.innerHTML = `
-    <image href="${state.imageUrl}" x="0" y="0" width="${image.width}" height="${image.height}" preserveAspectRatio="xMidYMid meet"></image>
-    <circle cx="${dish.x}" cy="${dish.y}" r="${dish.radius}" fill="none" stroke="rgba(215, 179, 86, 0.95)" stroke-width="3"></circle>
-    ${rejectedMarkup}
-    ${labelMarkup}
-    ${colonyMarkup}
-  `;
+  const failureMarkup = failures
+    .map(
+      (failure) => `
+        <article class="result-card failed-card">
+          <div class="result-card-header">
+            <div>
+              <h3>${failure.filename || "image"}</h3>
+              <span>Failed</span>
+            </div>
+            <strong>--</strong>
+          </div>
+          <p>${failure.error || "Could not process this image."}</p>
+        </article>
+      `,
+    )
+    .join("");
+
+  elements.resultCards.innerHTML = resultMarkup + failureMarkup;
 }
 
-function renderSelection() {
-  const selected = getSelectedColony();
-  elements.removeSelected.disabled = !selected;
-  if (!selected) {
-    elements.selectionText.textContent = "Select a colony marker to remove it, or click inside the dish to add one.";
-    return;
-  }
-  elements.selectionText.textContent = `Selected ${selected.id} at (${Math.round(selected.x)}, ${Math.round(selected.y)}) with ${Math.round(selected.conf * 100)}% confidence.`;
+function renderDetections() {
+  const rows = getSuccessfulResults().flatMap((result) =>
+    (result.detections || []).map((detection) => ({
+      filename: result.filename || "image",
+      detection,
+    })),
+  );
+  elements.detectionsPanel.classList.toggle("hidden", rows.length === 0);
+  elements.detectionsCount.textContent = `${rows.length} ${rows.length === 1 ? "box" : "boxes"}`;
+  elements.detectionsBody.innerHTML = rows
+    .slice(0, 500)
+    .map(({ filename, detection }) => {
+      const box = detection.box;
+      return `
+        <tr>
+          <td>${detection.id}</td>
+          <td>${filename}</td>
+          <td>${Math.round(detection.confidence * 100)}%</td>
+          <td>${Math.round(box.center_x)}</td>
+          <td>${Math.round(box.center_y)}</td>
+          <td>${Math.round(box.width)}</td>
+          <td>${Math.round(box.height)}</td>
+        </tr>
+      `;
+    })
+    .join("");
 }
 
 function render() {
-  elements.thresholdRange.value = String(Math.round(state.threshold * 100));
-  elements.thresholdValue.textContent = `${Math.round(state.threshold * 100)}%`;
-  elements.toggleLabels.checked = state.showLabels;
-  elements.toggleRejected.checked = state.showRejected;
-  renderPipeline();
-  renderLoading();
+  renderUpload();
+  renderSummary();
   renderError();
-  renderStats();
-  renderSvg();
-  renderTable();
-  renderLabelList();
-  renderSelection();
+  renderDownloads();
+  renderResults();
+  renderDetections();
 }
 
-async function analyzeFile(file) {
-  startLoading();
-  setError("");
-  resetCorrections();
-  state.analysis = null;
+async function checkHealth() {
+  try {
+    const response = await fetch("/health");
+    const payload = await response.json();
+    if (Number.isFinite(payload.max_upload_bytes)) {
+      state.maxUploadBytes = payload.max_upload_bytes;
+    }
+    if (Number.isFinite(payload.max_total_upload_bytes)) {
+      state.maxTotalUploadBytes = payload.max_total_upload_bytes;
+    }
+    if (Number.isFinite(payload.max_batch_images)) {
+      state.maxBatchImages = payload.max_batch_images;
+    }
+    const specialistLabel = specialistPathLabel(payload);
+    const specialists = payload.model_specialists || {};
+    elements.modelStatus.title = [
+      `Clean-dot: ${specialists.clean_dots?.path || "models/apricot_clean_dot_counter_v1.pt"}`,
+      `Merged: ${specialists.merged_snowman?.path || "models/apricot_merged_colony_counter_v1.pt"}`,
+    ].join("\n");
+    if (payload.model_exists) {
+      elements.modelStatus.textContent = `${payload.model_loaded ? "Loaded" : "Ready"} · ${specialistLabel}`;
+      elements.modelStatus.classList.add("ready");
+    } else {
+      elements.modelStatus.textContent = `Weights needed · ${specialistLabel}`;
+      elements.modelStatus.classList.remove("ready");
+    }
+    renderUpload();
+  } catch {
+    elements.modelStatus.textContent = "Service unavailable";
+    elements.modelStatus.classList.remove("ready");
+  }
+}
+
+async function submitPrediction() {
+  if (!state.files.length || state.loading) {
+    return;
+  }
+
+  state.loading = true;
+  state.error = "";
+  state.prediction = null;
   render();
 
+  const isBatch = state.files.length > 1;
   const formData = new FormData();
-  formData.append("file", file);
+  state.files.forEach((file) => formData.append(isBatch ? "images" : "file", file));
+  formData.append("confidence", elements.confidenceRange.value);
+  formData.append("include_images", "true");
 
   try {
-    const response = await fetch("/analyze", {
+    const response = await fetch(isBatch ? "/api/predict-batch" : "/api/predict", {
       method: "POST",
       body: formData,
     });
-    const raw = await response.text();
-    if (!raw) {
-      throw new Error(`Analysis failed: server returned an empty response (status ${response.status}).`);
-    }
-
-    let payload = null;
-    try {
-      payload = JSON.parse(raw);
-    } catch (parseError) {
-      const contentType = response.headers.get("content-type") || "unknown content type";
-      throw new Error(
-        `Analysis failed: server returned invalid JSON (status ${response.status}, ${contentType}).`,
-      );
-    }
-
+    const payload = await response.json();
     if (!response.ok || !payload.ok) {
-      throw new Error(payload?.error || `Analysis failed (status ${response.status}).`);
+      throw new Error(payload.error || `Prediction failed with status ${response.status}.`);
     }
-    state.analysis = payload.analysis;
+    state.prediction = payload;
   } catch (error) {
-    setError(error.message || "Analysis failed.");
+    setError(error.message || "Prediction failed.");
   } finally {
-    stopLoading();
+    state.loading = false;
     render();
+    checkHealth();
   }
 }
 
-function handleUpload(file) {
-  if (!file) {
-    return;
-  }
-  revokeImageUrl();
-  state.imageUrl = URL.createObjectURL(file);
-  state.fileName = file.name;
-  analyzeFile(file);
-}
-
-elements.uploadButton.addEventListener("click", () => elements.fileInput.click());
-elements.fileInput.addEventListener("change", (event) => handleUpload(event.target.files?.[0]));
-
-elements.thresholdRange.addEventListener("input", (event) => {
-  state.threshold = Number(event.target.value) / 100;
-  render();
+elements.fileInput.addEventListener("change", (event) => {
+  setFiles(event.target.files);
 });
 
-elements.toggleLabels.addEventListener("change", (event) => {
-  state.showLabels = event.target.checked;
-  render();
+elements.confidenceRange.addEventListener("input", render);
+
+elements.form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitPrediction();
 });
 
-elements.toggleRejected.addEventListener("change", (event) => {
-  state.showRejected = event.target.checked;
-  render();
+elements.dropZone.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  elements.dropZone.classList.add("dragging");
 });
 
-elements.resetSession.addEventListener("click", () => fullReset());
+elements.dropZone.addEventListener("dragleave", () => {
+  elements.dropZone.classList.remove("dragging");
+});
 
-elements.removeSelected.addEventListener("click", () => {
-  const selected = getSelectedColony();
-  if (!selected) {
-    return;
-  }
-  if (selected.id.startsWith("manual-")) {
-    state.manualColonies = state.manualColonies.filter((item) => item.id !== selected.id);
-  } else {
-    state.removedIds.add(selected.id);
-  }
-  state.selectedId = null;
-  state.corrections.removed += 1;
-  render();
+elements.dropZone.addEventListener("drop", (event) => {
+  event.preventDefault();
+  elements.dropZone.classList.remove("dragging");
+  setFiles(event.dataTransfer.files);
 });
 
 elements.downloadJson.addEventListener("click", () => {
-  if (!state.analysis) {
+  if (!state.prediction) {
     return;
   }
-  const payload = JSON.stringify(state.analysis, null, 2);
-  const blob = new Blob([payload], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(state.prediction, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `${state.fileName.replace(/\.[^.]+$/, "") || "gold-experience"}.analysis.json`;
+  anchor.download = "apricot-detections.json";
   anchor.click();
   URL.revokeObjectURL(url);
 });
 
-elements.svg.addEventListener("click", (event) => {
-  if (!state.analysis) {
-    return;
-  }
-
-  const colonyGroup = event.target.closest("[data-colony-id]");
-  if (colonyGroup) {
-    state.selectedId = colonyGroup.getAttribute("data-colony-id");
-    render();
-    return;
-  }
-
-  if (event.target.tagName.toLowerCase() !== "svg" && event.target.tagName.toLowerCase() !== "image") {
-    return;
-  }
-
-  const point = svgPoint(event);
-  const { dish } = state.analysis;
-  const dx = point.x - dish.x;
-  const dy = point.y - dish.y;
-  if (Math.sqrt(dx * dx + dy * dy) > dish.radius) {
-    return;
-  }
-
-  const manualColony = {
-    id: `manual-${Date.now()}`,
-    candidate_id: -1,
-    kind: "manual",
-    x: point.x,
-    y: point.y,
-    r: 7,
-    bbox: [Math.round(point.x - 7), Math.round(point.y - 7), 14, 14],
-    area: 154,
-    size: "medium",
-    conf: 1.0,
-    colony_score: 1.0,
-    label_score: 0.0,
-    rim_margin: 0.0,
-    circularity: 1.0,
-    solidity: 1.0,
-    local_contrast: 0.0,
-    edge_strength: 0.0,
-  };
-  state.manualColonies.push(manualColony);
-  state.corrections.added += 1;
-  state.selectedId = manualColony.id;
-  render();
-});
-
-elements.tableBody.addEventListener("click", (event) => {
-  const row = event.target.closest("[data-select-id]");
-  if (!row) {
-    return;
-  }
-  state.selectedId = row.getAttribute("data-select-id");
-  render();
-});
-
-window.addEventListener("beforeunload", () => revokeImageUrl());
-
 render();
+checkHealth();

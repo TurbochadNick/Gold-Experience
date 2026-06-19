@@ -1,4 +1,4 @@
-# Gold Experience Handoff for Claude
+# Apricot Colony Counter Handoff for Claude
 
 Date: 2026-04-25
 Repo: `TurbochadNick/Gold-Experience`

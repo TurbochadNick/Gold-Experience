@@ -223,7 +223,7 @@ def export_dataset(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Export GxP gold annotations into a local YOLO-style detector dataset."
+        description="Export Apricot gold annotations into a local YOLO-style detector dataset."
     )
     parser.add_argument("--image-dir", type=Path, default=Path("data/benchmark/images"))
     parser.add_argument("--annotations-dir", type=Path, default=Path("data/annotations/gold"))

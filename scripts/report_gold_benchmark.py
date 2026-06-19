@@ -93,7 +93,7 @@ def build_report(evaluation: dict[str, Any]) -> str:
     morphology_rows = _group_rows(images, "dominant_morphology")
 
     lines = [
-        "# GxP Gold Benchmark Report",
+        "# Apricot Gold Benchmark Report",
         "",
         "## Summary",
         "",
@@ -244,7 +244,7 @@ def write_csv(evaluation: dict[str, Any], path: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Create a human-readable report from a GxP gold evaluation JSON.")
+    parser = argparse.ArgumentParser(description="Create a human-readable report from an Apricot gold evaluation JSON.")
     parser.add_argument("evaluation_json", type=Path)
     parser.add_argument("--markdown-path", type=Path, default=Path("outputs/evaluation/gold_benchmark_report.md"))
     parser.add_argument("--csv-path", type=Path, default=Path("outputs/evaluation/gold_benchmark_per_plate.csv"))

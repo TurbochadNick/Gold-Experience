@@ -14,7 +14,7 @@ from gold_experience.api_server import serve
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Serve the Gold Experience web app and analysis API.")
+    parser = argparse.ArgumentParser(description="Serve the Apricot Colony Counter web app and analysis API.")
     parser.add_argument("--host", default=os.environ.get("HOST", "0.0.0.0"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
     args = parser.parse_args()

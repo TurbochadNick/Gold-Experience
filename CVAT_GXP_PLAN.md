@@ -1,10 +1,10 @@
-# CVAT + GxP Bio Integration Plan
+# CVAT + Apricot Colony Counter Integration Plan
 
 Date: 2026-04-26
 
 ## Goal
 
-Use CVAT as the manual annotation system for Gold Experience / GxP Bio so we can:
+Use CVAT as the manual annotation system for Apricot Colony Counter so we can:
 
 1. build a real benchmark set,
 2. stop tuning blindly on one or two plates,
@@ -92,7 +92,7 @@ Use for:
 
 ### B. Per-image user hints
 
-These come from the GxP Bio upload flow when a lab user clicks a few obvious colonies.
+These come from the Apricot upload flow when a lab user clicks a few obvious colonies.
 
 Examples:
 
@@ -111,11 +111,11 @@ Important:
 These should **not** automatically become gold labels.
 They are weak supervision until reviewed or promoted.
 
-## Proposed GxP Upload UX
+## Proposed Apricot Upload UX
 
 When a user uploads a plate:
 
-1. GxP runs the normal automatic pipeline.
+1. Apricot runs the normal automatic pipeline.
 2. Before showing the final count, ask for a tiny calibration step:
    - "Click 3 to 5 obvious colonies."
 3. Optional second step:
@@ -183,7 +183,7 @@ Fields:
 
 ### `user_hints`
 
-Weak supervision from GxP upload flow.
+Weak supervision from the Apricot upload flow.
 
 Fields:
 
@@ -219,11 +219,11 @@ Best starting point.
 
 Workflow:
 
-1. Export candidate images from GxP.
+1. Export candidate images from Apricot.
 2. Upload them into a CVAT project.
 3. Annotate manually in CVAT.
 4. Export annotations in CVAT native format.
-5. Convert those exports into GxP benchmark JSON with a repo script.
+5. Convert those exports into Apricot benchmark JSON with a repo script.
 
 This is enough to start building a real benchmark set immediately.
 
@@ -233,13 +233,13 @@ After the benchmark workflow works, automate it with the CVAT API.
 
 Potential flow:
 
-1. "Send to CVAT" button in GxP for hard cases.
-2. GxP creates a CVAT task via API.
+1. "Send to CVAT" button in Apricot for hard cases.
+2. Apricot creates a CVAT task via API.
 3. Task includes:
    - original image
    - optional model predictions as pre-annotations
 4. Annotator reviews in CVAT.
-5. Nightly import job pulls completed annotations back into GxP.
+5. Nightly import job pulls completed annotations back into Apricot.
 
 ### Level 3: review loop
 
@@ -273,7 +273,7 @@ Reason:
 
 ## Immediate Next Steps
 
-1. Create one CVAT project for GxP Bio plates.
+1. Create one CVAT project for Apricot colony-counter plates.
 2. Define labels:
    - `dish`
    - `colony_point`
@@ -286,8 +286,8 @@ Reason:
    - bright
    - dark
    - different label placements
-4. Add a repo script to convert CVAT export into GxP evaluation JSON.
-5. Add a lightweight GxP UI step for:
+4. Add a repo script to convert CVAT export into Apricot evaluation JSON.
+5. Add a lightweight Apricot UI step for:
    - 3 to 5 positive colony clicks
    - optional 1 to 3 negative clicks
 

@@ -1,10 +1,10 @@
-# GxP Bio CVAT Label Spec
+# Apricot Colony Counter CVAT Label Spec
 
 Date: 2026-04-26
 
 ## CVAT Project Name
 
-`GxP Bio Plates`
+`Apricot Colony Counter Plates`
 
 ## Labels
 

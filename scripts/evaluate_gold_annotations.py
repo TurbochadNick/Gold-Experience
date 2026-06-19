@@ -15,7 +15,7 @@ from gold_experience.pipeline import ColonyCounterPipeline  # noqa: E402
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate Gold Experience against CVAT gold annotations.")
+    parser = argparse.ArgumentParser(description="Evaluate Apricot Colony Counter against CVAT gold annotations.")
     parser.add_argument(
         "--image-dir",
         type=Path,
@@ -26,7 +26,7 @@ def main() -> None:
         "--annotations-dir",
         type=Path,
         default=Path("data/annotations/gold"),
-        help="Directory containing GxP *.gold.json annotation files.",
+        help="Directory containing Apricot *.gold.json annotation files.",
     )
     parser.add_argument(
         "--summary-path",

@@ -249,7 +249,7 @@ function AnalysisCanvas({
   );
 }
 
-export default function GoldExperienceConnectedApp() {
+export default function ApricotConnectedApp() {
   const [analysis, setAnalysis] = useState(null);
   const [manualColonies, setManualColonies] = useState([]);
   const [showLabels, setShowLabels] = useState(true);
@@ -523,7 +523,7 @@ export default function GoldExperienceConnectedApp() {
                   <PipelineStep key={item.key} label={item.label} status={item.status} detail={item.detail} />
                 ))}
                 <div style={{ marginTop: 6, fontSize: "0.65rem", color: GREEN }}>
-                  Engine: Gold Experience API
+                  Engine: Apricot API
                 </div>
               </>
             ) : analyzing ? (
@@ -629,7 +629,7 @@ export default function GoldExperienceConnectedApp() {
                   Upload Petri Dish Image
                 </div>
                 <div style={{ fontSize: "0.85rem", color: "#8892A8", maxWidth: 420, margin: "0 auto" }}>
-                  The app sends the image to your local Gold Experience API, detects the plate,
+                  The app sends the image to your local Apricot API, detects the plate,
                   filters labels, and returns colony candidates for review.
                 </div>
                 <div style={{ marginTop: 14, fontFamily: "'JetBrains Mono'", fontSize: "0.65rem", color: "#546E7A" }}>

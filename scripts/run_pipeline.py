@@ -32,7 +32,7 @@ def _iter_image_paths(input_path: Path) -> list[Path]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the Gold Experience rule-based pipeline.")
+    parser = argparse.ArgumentParser(description="Run the Apricot legacy rule-based pipeline.")
     parser.add_argument("input_path", type=Path)
     parser.add_argument("--output-dir", type=Path, default=Path("outputs/run"))
     parser.add_argument("--save-debug", action="store_true")
@@ -66,4 +66,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

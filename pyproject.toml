@@ -3,14 +3,22 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gold-experience"
+name = "apricot-colony-counter"
 version = "0.1.0"
-description = "Rule-based colony counter MVP scaffold."
+description = "Apricot Colony Counter web app and colony detection tooling."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "numpy>=2.0",
   "opencv-python-headless>=4.10",
+  "pillow>=10.0",
+  "ultralytics>=8.3",
+  "gunicorn>=22.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
 ]
 
 [tool.setuptools]

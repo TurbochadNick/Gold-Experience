@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: apricot-colony-counter
+    env: python
+    buildCommand: pip install --upgrade pip && pip install .
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    healthCheckPath: /health
+    envVars:
+      - key: APRICOT_MODEL_PATH
+        value: models/apricot_clean_dot_counter_v1.pt
+      - key: APRICOT_MERGED_MODEL_PATH
+        value: models/apricot_merged_colony_counter_v1.pt
+      - key: APRICOT_RETENTION_MODE
+        value: ephemeral
+      - key: APRICOT_MAX_BATCH_IMAGES
+        value: "10"

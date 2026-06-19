@@ -1,4 +1,4 @@
-# GxP Bio Lab-Grade Roadmap
+# Apricot Colony Counter Lab-Grade Roadmap
 
 Date: 2026-05-04
 
@@ -55,6 +55,22 @@ Current imported gold annotations live in:
 ```text
 data/annotations/gold/
 ```
+
+For each new batch, use a dry-run first:
+
+```bash
+python3 scripts/import_cvat_native.py "/path/to/Batch 002.zip" \
+  --output-dir data/annotations/gold \
+  --image-dir data/benchmark/images \
+  --dry-run \
+  --no-overwrite \
+  --require-images
+```
+
+This should list the new image names and zero existing gold files. If it lists the
+original 13 benchmark images or 13 existing outputs, the file is probably a project
+export rather than the intended task export. Re-export the specific CVAT task in
+native image format before importing.
 
 ### 3. Benchmark Report
 
