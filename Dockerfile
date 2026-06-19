@@ -15,7 +15,24 @@ COPY scripts ./scripts
 COPY web ./web
 COPY models ./models
 
-RUN pip install --upgrade pip && pip install .
+RUN python -m pip install --upgrade pip \
+    && python -m pip install . \
+    && python -m pip install \
+        --index-url https://download.pytorch.org/whl/cpu \
+        "torch>=1.8.0" \
+        "torchvision>=0.9.0" \
+    && python -m pip install \
+        "matplotlib>=3.3.0" \
+        "pyyaml>=5.3.1" \
+        "requests>=2.23.0" \
+        "scipy>=1.4.1" \
+        "psutil>=5.8.0" \
+        "polars>=0.20.0" \
+        "nvidia-ml-py>=12.0.0" \
+        "ultralytics-thop>=2.0.18" \
+    && python -m pip install "ultralytics>=8.3" --no-deps \
+    && python -m pip show opencv-python-headless \
+    && ! python -m pip show opencv-python
 
 EXPOSE 8000
 
