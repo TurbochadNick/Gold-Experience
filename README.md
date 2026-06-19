@@ -28,11 +28,14 @@ pip install -e ".[dev]"
 
 Runtime dependencies are intentionally small for deployment:
 
-- `ultralytics`
 - `opencv-python-headless`
 - `pillow`
 - `numpy`
 - `gunicorn`
+
+The base web app can boot and report health without loading YOLO. Install YOLO tooling only in an
+inference/training environment that preserves `opencv-python-headless`; the base Render install avoids
+packages whose default dependency set pulls in the GUI-enabled OpenCV wheel.
 
 The project uses the existing stdlib HTTP server locally and exposes a WSGI `app:app` entrypoint for Gunicorn on Render.
 

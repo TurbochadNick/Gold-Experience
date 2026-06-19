@@ -201,7 +201,7 @@ def load_model(model_path: str) -> Any:
         from ultralytics import YOLO
     except ImportError as exc:  # pragma: no cover - depends on deployment image
         raise InferenceDependencyError(
-            "Ultralytics is not installed. Install runtime dependencies before running inference."
+            "Ultralytics is not installed. Install optional YOLO inference dependencies before running inference."
         ) from exc
 
     LOGGER.info("Loading Apricot YOLO model path=%s version=%s", public_model_path(path), model_version(path))

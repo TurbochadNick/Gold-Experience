@@ -12,7 +12,6 @@ dependencies = [
   "numpy>=2.0",
   "opencv-python-headless>=4.10",
   "pillow>=10.0",
-  "ultralytics>=8.3",
   "gunicorn>=22.0",
 ]
 

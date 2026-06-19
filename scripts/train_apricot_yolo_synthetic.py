@@ -248,8 +248,8 @@ def train_model(dataset_root: Path, epochs: int, image_size: int, batch: int, ru
         from ultralytics import YOLO
     except ImportError as exc:
         raise SystemExit(
-            "ultralytics is not installed. Install it in a local training environment with "
-            "`pip install ultralytics`, then rerun with --train."
+            "ultralytics is not installed. Install YOLO tooling in a local training environment "
+            "that preserves opencv-python-headless, then rerun with --train."
         ) from exc
 
     model = YOLO("yolov8n.pt")

@@ -344,8 +344,8 @@ def train_yolo(
         from ultralytics import YOLO
     except ImportError as exc:
         raise SystemExit(
-            "ultralytics is not installed. Install training dependencies with `pip install -e .` "
-            "or `pip install ultralytics`, then rerun this offline training script."
+            "ultralytics is not installed. Install YOLO tooling in a local training environment "
+            "that preserves opencv-python-headless, then rerun this offline training script."
         ) from exc
 
     model = YOLO(base_model)

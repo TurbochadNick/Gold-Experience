@@ -23,12 +23,14 @@ dependencies = [
   "numpy>=2.0",
   "opencv-python-headless>=4.10",
   "pillow>=10.0",
-  "ultralytics>=8.3",
   "gunicorn>=22.0",
 ]
 ```
 
 There is no `requirements.txt` for the deployed service. Render uses `render.yaml`.
+The base Render install intentionally excludes packages whose default dependency metadata installs the
+GUI-enabled OpenCV wheel. Keep Render boot/health checks on headless OpenCV only; install YOLO tooling
+in a separate inference/training image or environment that does not replace headless OpenCV.
 
 ## Current Inference Path
 
@@ -110,7 +112,7 @@ data/model_training/apricot_yolo_synthetic_v3/
 Train YOLO locally, not on Render:
 
 ```bash
-pip install ultralytics
+# Install YOLO tooling in a local training environment that preserves opencv-python-headless.
 python3 scripts/train_apricot_yolo_synthetic.py --train
 ```
 
