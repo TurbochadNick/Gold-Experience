@@ -179,7 +179,7 @@ def app(environ: dict[str, Any], start_response: StartResponse) -> Iterable[byte
             response = _serve_file(start_response, api_server.OUTPUT_DIR, path, prefix="/outputs")
             if response is not None:
                 return response
-        if path == "/" or path in {"/index.html", "/app.js", "/styles.css"}:
+        if path == "/" or path in {"/index.html", "/app.js", "/styles.css", "/apricot-icon.svg"}:
             response = _serve_file(start_response, api_server.WEB_ROOT, path)
             if response is not None:
                 return response

@@ -587,7 +587,7 @@ class ApricotRequestHandler(BaseHTTPRequestHandler):
             if self._serve_file_from_root(OUTPUT_DIR, path, prefix="/outputs"):
                 return
 
-        if path == "/" or path in {"/index.html", "/app.js", "/styles.css"}:
+        if path == "/" or path in {"/index.html", "/app.js", "/styles.css", "/apricot-icon.svg"}:
             if self._serve_file_from_root(WEB_ROOT, path):
                 return
 

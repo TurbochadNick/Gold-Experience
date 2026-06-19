@@ -122,6 +122,20 @@ function formatSchema(schema) {
   return SCHEMA_DISPLAY_NAMES[schema] || String(schema || "Unknown").replaceAll("_", " ");
 }
 
+function badgeClass(value, baseClass) {
+  const normalized = String(value || "").toLowerCase().replaceAll("_", "-").replaceAll(" ", "-");
+  return `${baseClass} ${normalized}`;
+}
+
+function schemaBadge(schema) {
+  return `<span class="${badgeClass(schema, "schema-badge")}">${schema || "schema_unknown"}</span>`;
+}
+
+function statusBadge(status, modifier = "") {
+  const modifierClass = modifier ? ` ${modifier}` : "";
+  return `<span class="status-badge${modifierClass}">${status}</span>`;
+}
+
 function selectedSchema(result) {
   return result?.selected_schema || result?.chosen_schema || result?.model?.schema || result?.schema;
 }
@@ -156,12 +170,13 @@ function renderSummary() {
   const modelNames = uniqueValues(results.map(selectedModelPath));
   const schemas = uniqueValues(results.map(selectedSchema));
   const warnings = uniqueValues(results.map((result) => result.reliability_warning));
+  const schemaLabel = schemas.length === 0 ? "--" : schemas.length === 1 ? formatSchema(schemas[0]) : "mixed";
 
   elements.countValue.textContent = totalCount === undefined ? "--" : String(totalCount);
   elements.thresholdUsed.textContent = threshold === undefined ? "Threshold --" : `Threshold ${Number(threshold).toFixed(2)}`;
   elements.runtimeUsed.textContent = results.length === 1 && results[0].duration_ms ? `Runtime ${results[0].duration_ms} ms` : "Runtime --";
-  elements.schemaUsed.textContent =
-    schemas.length === 0 ? "Counted as --" : `Counted as ${schemas.length === 1 ? formatSchema(schemas[0]) : "mixed"}`;
+  elements.schemaUsed.innerHTML =
+    schemas.length === 0 ? "Schema --" : `Schema ${schemaLabel} <span class="badge-row">${schemas.map(schemaBadge).join("")}</span>`;
   elements.modelUsed.textContent = modelNames.length === 0 ? "Model --" : `Model ${modelNames.length === 1 ? modelNames[0] : "mixed"}`;
   elements.batchUsed.textContent = prediction
     ? `Images ${results.length}${failures.length ? `, Failed ${failures.length}` : ""}`
@@ -216,16 +231,21 @@ function renderResults() {
       const warning = result.reliability_warning ? `<p class="warning-inline">${result.reliability_warning}</p>` : "";
       const countedAs = selectedSchema(result);
       const routedAs = result.route_schema || result.schema;
-      const schemaText = routedAs && routedAs !== countedAs
-        ? `${formatSchema(countedAs)} · route ${formatSchema(routedAs)}`
-        : formatSchema(countedAs);
       const modelPath = selectedModelPath(result);
+      const modelLabel = modelPath || "model unknown";
+      const runtime = result.duration_ms ? `${result.duration_ms} ms` : "runtime unavailable";
+      const confidence = Number(result.confidence_threshold ?? result.confidence ?? 0).toFixed(2);
       return `
         <article class="result-card">
           <div class="result-card-header">
             <div>
               <h3>${result.filename || "image"}</h3>
-              <span>${schemaText} · ${modelPath || "model unknown"} · ${Number(result.confidence_threshold ?? result.confidence ?? 0).toFixed(2)}</span>
+              <div class="result-meta">
+                <div class="badge-row">${schemaBadge(countedAs)}</div>
+                <span class="result-meta-line">Model ${modelLabel}</span>
+                <span class="result-meta-line">Runtime ${runtime} · Confidence ${confidence}</span>
+                ${routedAs && routedAs !== countedAs ? `<span class="result-meta-line">Route ${formatSchema(routedAs)}</span>` : ""}
+              </div>
             </div>
             <strong>${result.count}</strong>
           </div>
@@ -313,10 +333,10 @@ async function checkHealth() {
       `Merged: ${specialists.merged_snowman?.path || "models/apricot_merged_colony_counter_v1.pt"}`,
     ].join("\n");
     if (payload.model_exists) {
-      elements.modelStatus.textContent = `${payload.model_loaded ? "Loaded" : "Ready"} · ${specialistLabel}`;
+      elements.modelStatus.innerHTML = `<span class="badge-row">${statusBadge("Ready")}</span><span>${specialistLabel}</span>`;
       elements.modelStatus.classList.add("ready");
     } else {
-      elements.modelStatus.textContent = `Weights needed · ${specialistLabel}`;
+      elements.modelStatus.innerHTML = `<span class="badge-row">${statusBadge("Weights Missing", "missing")}</span><span>${specialistLabel}</span>`;
       elements.modelStatus.classList.remove("ready");
     }
     renderUpload();
@@ -334,6 +354,8 @@ async function submitPrediction() {
   state.loading = true;
   state.error = "";
   state.prediction = null;
+  elements.modelStatus.innerHTML = `<span class="badge-row">${statusBadge("Processing", "processing")}</span>`;
+  elements.modelStatus.classList.remove("ready");
   render();
 
   const isBatch = state.files.length > 1;

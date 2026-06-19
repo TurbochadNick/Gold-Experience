@@ -214,6 +214,13 @@ def test_home_route_serves_web_app(apricot_client) -> None:
     assert b"Apricot" in body
 
 
+def test_apricot_icon_is_served(apricot_client) -> None:
+    status, body = apricot_client("/apricot-icon.svg")
+    assert status == 200
+    assert body.startswith(b"<svg")
+    assert b"#d9823b" in body
+
+
 def test_health_route_reports_model_configuration(apricot_client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     model_path = tmp_path / "models" / "apricot_clean_dot_counter_v1.pt"
     monkeypatch.setenv("APRICOT_MODEL_PATH", str(model_path))
