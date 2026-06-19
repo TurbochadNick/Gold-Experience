@@ -23,7 +23,7 @@ runs
 reports/*.jpg
 reports/*.jpeg
 reports/*.png
-models/*.pt
+models/*
 *.pt
 !models/apricot_clean_dot_counter_v1.pt
 !models/apricot_merged_colony_counter_v1.pt

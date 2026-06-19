@@ -13,6 +13,7 @@ COPY pyproject.toml README.md app.py ./
 COPY src ./src
 COPY scripts ./scripts
 COPY web ./web
+COPY models ./models
 
 RUN pip install --upgrade pip && pip install .
 
