@@ -459,7 +459,7 @@ export default function ApricotConnectedApp() {
                 WebkitTextFillColor: "transparent",
               }}
             >
-              GOLD EXPERIENCE
+              APRICOT
             </div>
             <div
               style={{
@@ -470,7 +470,7 @@ export default function ApricotConnectedApp() {
                 textTransform: "uppercase",
               }}
             >
-              GXP Bio | Colony Counter v1
+              Apricot Colony Counter v1
             </div>
           </div>
 
@@ -594,7 +594,7 @@ export default function ApricotConnectedApp() {
                 letterSpacing: -1,
               }}
             >
-              「GOLD EXPERIENCE」
+              「APRICOT」
             </div>
             <div
               style={{

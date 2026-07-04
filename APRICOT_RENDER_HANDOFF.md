@@ -7,7 +7,7 @@ This answers the integration questions for the current Render-facing web service
 - Product name: Apricot Colony Counter
 - Python package distribution: `apricot-colony-counter`
 - WSGI application entrypoint: `app:app`
-- HTTP/WSGI implementation: `src/gold_experience/wsgi.py` and `src/gold_experience/api_server.py`
+- HTTP/WSGI implementation: Apricot's lightweight WSGI service exposed through `app:app`
 - Web framework: no Flask/FastAPI/Django. The deployed app exposes a lightweight WSGI callable for Gunicorn.
 - Frontend files: `web/index.html`, `web/app.js`, `web/styles.css`
 - Container config: `Dockerfile`
@@ -39,7 +39,7 @@ The current deployed inference is YOLO-backed through `src/apricot/inference.py`
 - Default clean-dot weights: `models/apricot_clean_dot_counter_v1.pt`
 - Optional merged-colony weights: `models/apricot_merged_colony_counter_v1.pt`
 - Route/schema selection: `src/apricot/schema_router.py`
-- WSGI app: `src/gold_experience/wsgi.py`
+- WSGI app: `app:app`
 
 ## API Endpoints
 

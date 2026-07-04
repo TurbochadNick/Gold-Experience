@@ -1,8 +1,8 @@
 # Apricot Colony Counter Handoff for Claude
 
 Date: 2026-04-25
-Repo: `TurbochadNick/Gold-Experience`
-Live URL: `https://gold-experience.onrender.com`
+Repo: `TurbochadNick/Apricot-Colony-Counter`
+Live URL: `https://apricot-1twy.onrender.com`
 
 ## 1. Current Stack
 
@@ -17,7 +17,7 @@ Live URL: `https://gold-experience.onrender.com`
 These commits are already on `origin/main` and deployed to Render.
 
 1. `64885bf` — `Add agar baseline normalization and relative scoring`
-   - Added `src/gold_experience/illumination.py`
+   - Added `illumination.py`
    - Pipeline now does:
      - CLAHE on L channel
      - per-image agar baseline estimate
@@ -83,7 +83,7 @@ So there are two problems:
 
 Main hotspot:
 
-- `src/gold_experience/candidate_detection.py`
+- `candidate_detection.py`
 
 Why:
 
@@ -114,7 +114,7 @@ Observed effect on `1399.jpg`:
 
 Main hotspot:
 
-- `src/gold_experience/label_filter.py`
+- `label_filter.py`
 
 Why:
 
@@ -154,7 +154,7 @@ Observed effect on `1399.jpg`:
 
 Main hotspot:
 
-- `src/gold_experience/colony_scoring.py`
+- `colony_scoring.py`
 
 Why:
 

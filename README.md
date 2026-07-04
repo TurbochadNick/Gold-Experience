@@ -338,7 +338,7 @@ Do not commit large generated datasets, uploads, annotated outputs, training run
 
 ## Legacy And Evaluation Utilities
 
-The older explainable OpenCV pipeline remains under `src/gold_experience/` for reference and evaluation work. Annotation and benchmark helpers are still available:
+The older explainable OpenCV pipeline remains available for reference and evaluation work. Annotation and benchmark helpers are still available:
 
 - [CVAT label spec](CVAT_LABEL_SPEC.md)
 - [Annotation schema](ANNOTATION_SCHEMA.md)

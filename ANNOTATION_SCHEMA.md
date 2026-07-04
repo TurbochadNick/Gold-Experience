@@ -103,9 +103,7 @@ User hints:
 
 ## Code Support
 
-Python models live in:
-
-- `src/gold_experience/annotations.py`
+Python models live in the Apricot annotation support module.
 
 Current classes:
 
